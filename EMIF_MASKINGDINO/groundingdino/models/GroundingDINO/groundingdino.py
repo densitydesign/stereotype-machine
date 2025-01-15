@@ -15,6 +15,8 @@
 # Copyright (c) 2020 SenseTime. All Rights Reserved.
 # ------------------------------------------------------------------------
 import copy
+import sys
+import os
 from typing import List
 
 import torch
@@ -23,8 +25,14 @@ from torch import nn
 from torchvision.ops.boxes import nms
 from transformers import AutoTokenizer, BertModel, BertTokenizer, RobertaModel, RobertaTokenizerFast
 
-from groundingdino.util import box_ops, get_tokenlizer
-from groundingdino.util.misc import (
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(current_dir)
+parent_dir = os.path.abspath(os.path.join(current_dir, '../..'))
+sys.path.append(parent_dir)
+print("parent_dir", parent_dir)
+
+from util import box_ops, get_tokenlizer
+from util.misc import (
     NestedTensor,
     accuracy,
     get_world_size,
@@ -33,9 +41,9 @@ from groundingdino.util.misc import (
     is_dist_avail_and_initialized,
     nested_tensor_from_tensor_list,
 )
-from groundingdino.util.utils import get_phrases_from_posmap
-from groundingdino.util.visualizer import COCOVisualizer
-from groundingdino.util.vl_utils import create_positive_map_from_span
+from util.utils import get_phrases_from_posmap
+from util.visualizer import COCOVisualizer
+from util.vl_utils import create_positive_map_from_span
 
 from ..registry import MODULE_BUILD_FUNCS
 from .backbone import build_backbone

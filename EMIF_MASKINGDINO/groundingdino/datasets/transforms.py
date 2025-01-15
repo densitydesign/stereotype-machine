@@ -4,14 +4,22 @@ Transforms and data augmentation for both image + bbox.
 """
 import os
 import random
+import sys
 
 import PIL
 import torch
 import torchvision.transforms as T
 import torchvision.transforms.functional as F
 
-from groundingdino.util.box_ops import box_xyxy_to_cxcywh
-from groundingdino.util.misc import interpolate
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(current_dir)
+parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
+sys.path.append(parent_dir)
+print("parent_dir", parent_dir)
+
+from util.box_ops import box_xyxy_to_cxcywh
+from util.misc import interpolate
 
 
 def crop(image, target, region):

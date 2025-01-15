@@ -1,6 +1,8 @@
 from typing import Tuple, List
 
 import cv2
+import sys
+import os
 import numpy as np
 import supervision as sv
 import torch
@@ -8,16 +10,23 @@ from PIL import Image
 from torchvision.ops import box_convert
 import bisect
 
-import groundingdino.datasets.transforms as T
-from groundingdino.models import build_model
-from groundingdino.util.misc import clean_state_dict
-from groundingdino.util.slconfig import SLConfig
-from groundingdino.util.utils import get_phrases_from_posmap
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(current_dir)
+parent_dir = os.path.abspath(os.path.join(current_dir, '../..'))
+sys.path.append(parent_dir)
+datasets_dir = os.path.abspath(os.path.join('datasets'))
+print("datasets_dir", datasets_dir)
+sys.path.append(datasets_dir)
+
+import datasets.transforms as T
+from models import build_model
+from util.misc import clean_state_dict
+from util.slconfig import SLConfig
+from util.utils import get_phrases_from_posmap
 
 # ----------------------------------------------------------------------------------------------------------------------
 # OLD API
 # ----------------------------------------------------------------------------------------------------------------------
-
 
 def preprocess_caption(caption: str) -> str:
     result = caption.lower().strip()
@@ -34,7 +43,6 @@ def load_model(model_config_path: str, model_checkpoint_path: str, device: str =
     model.load_state_dict(clean_state_dict(checkpoint["model"]), strict=False)
     model.eval()
     return model
-
 
 def load_image(image_path: str) -> Tuple[np.array, torch.Tensor]:
     transform = T.Compose(

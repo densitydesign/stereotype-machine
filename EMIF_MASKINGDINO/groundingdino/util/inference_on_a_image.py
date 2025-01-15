@@ -5,16 +5,21 @@ import sys
 import numpy as np
 import torch
 from PIL import Image, ImageDraw, ImageFont
-sys.path.append("..")
-sys.path.append("/Users/tommasoprinetti/Documents/DENSITY_OFFICE/EMIF/GroundingDino/GroundingDINO")
+#sys.path.append("..")
 
-import groundingdino.datasets.transforms as T
-from groundingdino.models import build_model
-from groundingdino.util import box_ops
-from groundingdino.util.slconfig import SLConfig
-from groundingdino.util.utils import clean_state_dict, get_phrases_from_posmap
-from groundingdino.util.vl_utils import create_positive_map_from_span
+#sys.path.append("/Users/tommasoprinetti/Documents/DENSITY_OFFICE/EMIF/GroundingDino/GroundingDINO")
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(current_dir)
+parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
+sys.path.append(parent_dir)
+print("parent_dir", parent_dir)
 
+import datasets.transforms as T
+from models import build_model
+from util import box_ops
+from util.slconfig import SLConfig
+from util.utils import clean_state_dict, get_phrases_from_posmap
+from util.vl_utils import create_positive_map_from_span
 
 
 def plot_boxes_to_image(image_pil, tgt):

@@ -3,9 +3,9 @@ from tkinter import ttk
 from gui import ImageGenerationApp, ImageCuttingApp, GridCreationApp
 import sys
 import os
+
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(ROOT_DIR)
-
 
 if __name__ == "__main__":
     root = tk.Tk()

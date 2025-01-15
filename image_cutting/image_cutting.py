@@ -18,7 +18,7 @@ USE_SAM2 = True
 
 # Adding paths to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
-emif_maskingdino_path = os.path.join(current_dir, '..', 'EMIF-MaskingDino')
+emif_maskingdino_path = os.path.join(current_dir, '..', 'EMIF_MASKINGDINO')
 efficientvit_path = os.path.join(current_dir, 'efficientvit')
 sam_hq_path = os.path.join(current_dir, 'sam-hq')
 
@@ -49,7 +49,7 @@ else:
 
 TEXT_THRESHOLD = 0.35
 global_folder = '/Users/tommasoprinetti/Desktop/ROOT_FOLDER'
-model_folder = '/Users/tommasoprinetti/Documents/EMIF_REHARSAL/ROOT/EMIF-MaskingDino/model_folder'
+model_folder = '/Users/tommasoprinetti/Documents/EMIF_REHARSAL/ROOT/EMIF_MASKINGDINO/model_folder'
 
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
@@ -66,7 +66,7 @@ def worker_init():
         global_device = torch.device('cpu')
 
     global_model = load_model(
-        "/Users/tommasoprinetti/Documents/EMIF_REHARSAL/ROOT/EMIF-MaskingDino/weights/GroundingDINO_SwinB_cfg.py",
+        "/Users/tommasoprinetti/Documents/EMIF_REHARSAL/ROOT/EMIF_MASKINGDINO/weights/GroundingDINO_SwinB_cfg.py",
         f"{model_folder}/groundingdino_swinb_cogcoor.pth",
         device=global_device
     )

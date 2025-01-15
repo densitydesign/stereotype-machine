@@ -10,9 +10,20 @@ import platform
 import subprocess
 from tqdm import tqdm
 from PIL import Image
-from config.api_parameters_txt2img import txt2img_data
-from config.api_parameters_img2img import img2img_data
-from config.variable_set import variable_sets
+import sys
+
+# Get the current script directory
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Add the current directory and config directory to sys.path
+sys.path.append(current_dir)
+project_root = os.path.abspath(os.path.join(current_dir, '..'))
+sys.path.append(project_root)
+
+# Import modules from the config folder
+from api_parameters_txt2img import txt2img_data
+from api_parameters_img2img import img2img_data
+from variable_set import variable_sets
 
 # Base folders for image saving
 BASE_FOLDER = "Generated_Images"

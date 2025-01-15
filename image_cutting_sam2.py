@@ -20,27 +20,33 @@ from PIL import ImageDraw
 
 from scipy.ndimage import binary_fill_holes, generate_binary_structure, label
 
-
 # Adding paths to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
-emif_maskingdino_path = os.path.join(current_dir, '..', 'EMIF-MaskingDino')
-efficientvit_path = os.path.join(current_dir, 'efficientvit')
+project_root = current_dir
 
+emif_maskingdino_path = os.path.join(current_dir, '..', 'EMIF_MASKINGDINO')
+efficientvit_path = os.path.join(current_dir, 'efficientvit')
+print("current_dir:\n", current_dir)
+
+sys.path.append(project_root)
 sys.path.append(efficientvit_path)
 sys.path.append(emif_maskingdino_path)
+from GroundingDINO.groundingdino.util.inference import load_model, load_image
+from GroundingDINO.demo.inference_on_a_image import get_grounding_output
 
-from groundingdino.util.inference import load_model, load_image # type: ignore
-from groundingdino.util.inference_on_a_image import get_grounding_output # type: ignore
+#from Groundin.groundingdino.util.inference import load_model, load_image #THIS HAS TO BE SOLVED
+#from EMIF_MASKINGDINO.groundingdino.util.inference_on_a_image import get_grounding_output #THIS HAS TO BE SOLVED
+
 #from image_cutting.config.text_prompts import text_prompts
 
 from torchvision.ops import box_convert
 
-warnings.filterwarnings("ignore", category=UserWarning)
-warnings.filterwarnings("ignore", category=FutureWarning)
+#warnings.filterwarnings("ignore", category=UserWarning)
+#warnings.filterwarnings("ignore", category=FutureWarning)
 
 TEXT_THRESHOLD = 0.35
 global_folder = '/Users/tommasoprinetti/Desktop/ROOT_FOLDER'
-model_folder = '/Users/tommasoprinetti/Documents/EMIF_REHARSAL/ROOT/EMIF-MaskingDino/model_folder'
+model_folder = '/Users/tommasoprinetti/Documents/EMIF_REHARSAL/ROOT/EMIF_MASKINGDINO/model_folder'
 sam_model = SAM(f"{model_folder}/sam_l.pt")
 
 mode = "predict"
@@ -63,7 +69,7 @@ def worker_init():
         global_device = torch.device('cpu')
 
     global_model = load_model(
-        "/Users/tommasoprinetti/Documents/EMIF_REHARSAL/ROOT/EMIF-MaskingDino/weights/GroundingDINO_SwinB_cfg.py",
+        "/Users/tommasoprinetti/Documents/EMIF_REHARSAL/ROOT/EMIF_MASKINGDINO/weights/GroundingDINO_SwinB_cfg.py",
         f"{model_folder}/groundingdino_swinb_cogcoor.pth",
         device=global_device
     )
@@ -208,7 +214,7 @@ def extractImages(boxes_xyxy, image_path: str, text_prompt: str, output_folder: 
     # 3. Create a SAMPredictor with some global overrides
     #    Adjust or add as needed: conf, imgsz, model, etc.
     overrides = dict(
-        conf=0.4,         # Confidence threshold
+        conf=0.2,         # Confidence threshold
         mode=mode,   # Ensures we do inference
         imgsz=1024,       # Higher resolution may yield finer masks
         model="sam_l.pt"  # If needed, or use a different checkpoint

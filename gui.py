@@ -3,7 +3,7 @@ from tkinter import ttk, messagebox
 import threading
 import time
 from image_generation.generate_pipeline import generate_images
-from config.variable_set import variable_sets
+from image_generation.variable_set import variable_sets
 import queue
 import sys
 import tkinter.filedialog as fd
@@ -11,9 +11,32 @@ import os
 from image_cutting_sam2 import process_images
 from PIL import Image, ImageTk
 import queue
+import logging
+
+logging.basicConfig(
+    filename="gui_debug.log",
+    level=logging.DEBUG,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+def log_widget_info(widget, name="Widget"):
+    """Log widget's geometry and configuration information."""
+    try:
+        logging.debug(f"{name}: {widget.winfo_class()} at {widget.winfo_geometry()}")
+    except Exception as e:
+        logging.error(f"Error logging {name}: {e}")
+
+
+class DebugMixin:
+    """Mixin class to add debug logging for GUI components."""
+
+    def debug_log(self, message):
+        logging.debug(message)
 
 class ImageGenerationApp:
+    
     def __init__(self, frame):
+        logging.debug("Initializing ImageGenerationApp")
         self.frame = frame
 
         # Folder path variables
@@ -46,7 +69,11 @@ class ImageGenerationApp:
         self.steps_var = tk.StringVar(value="30")
         self.steps_options = [str(i) for i in range(10, 101, 10)]
 
-        self._setup_gui()
+        try:
+            self._setup_gui()
+            logging.debug("GUI setup completed")
+        except Exception as e:
+            logging.error(f"Error during GUI setup: {e}")
 
     def display_image(self, image_path):
         """
@@ -55,6 +82,7 @@ class ImageGenerationApp:
             image_path (str): Path to the image to display.
         """
         try:
+            logging.debug(f"Attempting to display image: {image_path}")
             # Open and resize the image to fit the label
             img = Image.open(image_path)
             img = img.resize((700, 700), Image.Resampling.LANCZOS)
@@ -64,12 +92,19 @@ class ImageGenerationApp:
             self.image_label.config(image=photo)
             self.image_label.image = photo  # Keep a reference to avoid garbage collection
             self.image_label.config(text="")  # Clear the placeholder text
+            logging.info(f"Image displayed: {image_path}")
+
+        except FileNotFoundError:
+            logging.error(f"Image file not found: {image_path}")
+            messagebox.showerror("Error", f"Image file not found: {image_path}")
         except Exception as e:
-            print(f"Error displaying image: {e}")
+            logging.error(f"Error displaying image: {e}")
+            messagebox.showerror("Error", f"Error displaying image: {e}")
 
     def _setup_gui(self):
         # Set custom font globally for all widgets
         try:
+            logging.debug("Setting up GUI components")
             self.frame.option_add("*Font", "InstrumentSans 12")
         except tk.TclError:
             self.frame.option_add("*Font", "Helvetica 12")
@@ -109,6 +144,8 @@ class ImageGenerationApp:
         self.nation_combobox = ttk.Combobox(selection_frame, textvariable=self.nation_var, values=nations, state="readonly")
         self.nation_combobox.grid(row=0, column=1, sticky="w", padx=5, pady=5)
         self.nation_combobox.current(0)
+
+        logging.debug("Nation combobox setup completed")
 
         # Category selection
         category_label = tk.Label(selection_frame, text="Select Category:")
@@ -343,7 +380,7 @@ class ImageGenerationApp:
 
             try:
                 # Display the dummy image as a placeholder
-                dummy_image_path = "/Users/tommasoprinetti/Documents/EMIF_REHARSAL/ROOT/EMIF-MaskingDino/BG_dummy.png"
+                dummy_image_path = "/Users/tommasoprinetti/Documents/EMIF_REHARSAL/ROOT/EMIF_MASKINGDINO/BG_dummy.png"
                 if os.path.exists(dummy_image_path):
                     self.display_image(dummy_image_path)
                 else:
@@ -533,6 +570,10 @@ class ImageCuttingApp:
         self.log_text = tk.Text(self.frame, height=10, state=tk.DISABLED)
         self.log_text.pack(padx=10, pady=5, fill="both", expand=True)
 
+        logging.debug(f"Image Cutting frame parent: {self.frame.winfo_parent()}")
+        logging.debug(f"Image Cutting frame geometry: {self.frame.winfo_width()}x{self.frame.winfo_height()}")
+
+
     def select_input_folder(self):
         folder = fd.askdirectory(title="Select Input Folder")
         if folder:
@@ -656,29 +697,53 @@ class GridCreationApp:
 
 # To initialize the app in main.py
 if __name__ == "__main__":
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
+
     root = tk.Tk()
     root.title("EMIF Multi-App GUI")
 
-    screen_width = root.winfo_screenwidth() - 100
-    screen_height = root.winfo_screenheight() - 100
+    # Set the root window geometry and minimum size
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+    root.geometry(f"{screen_width - 100}x{screen_height - 100}+50+50")
+    root.minsize(800, 600)
+    logging.debug(f"Root window geometry: {root.geometry()}")
 
-    # Notebook for Tabs
+    # Create and pack the Notebook
     notebook = ttk.Notebook(root)
     notebook.pack(fill="both", expand=True)
+    root.update_idletasks()
+    logging.debug(f"Updated Notebook geometry: {notebook.winfo_width()}x{notebook.winfo_height()}")
+
 
     # Tab 1: Image Generation App
     tab1 = tk.Frame(notebook)
+    tab1.pack(fill="both", expand=True)
     notebook.add(tab1, text="Image Generation")
     ImageGenerationApp(tab1)
 
     # Tab 2: Image Cutting App
     tab2 = tk.Frame(notebook)
+    tab2.pack(fill="both", expand=True)
     notebook.add(tab2, text="Image Cutting")
     ImageCuttingApp(tab2)
 
     # Tab 3: Grid Creation App
     tab3 = tk.Frame(notebook)
+    tab3.pack(fill="both", expand=True)
     notebook.add(tab3, text="Grid Creation")
     GridCreationApp(tab3)
+
+    notebook.update_idletasks()
+    logging.debug(f"Updated Notebook geometry: {notebook.winfo_width()}x{notebook.winfo_height()}")
+
+    # Force geometry update
+    root.update_idletasks()
+    logging.debug(f"Updated root window geometry: {root.geometry()}")
+    logging.debug(f"Updated Notebook geometry: {notebook.winfo_width()}x{notebook.winfo_height()}")
+
+    for i, tab in enumerate(notebook.winfo_children(), start=1):
+        logging.debug(f"Tab {i} geometry after add: {tab.winfo_width()}x{tab.winfo_height()}")
 
     root.mainloop()

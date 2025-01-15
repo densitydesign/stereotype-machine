@@ -1,9 +1,10 @@
+#IT NEEDS PYTHON 3.9-3.12
+
 requests
 Pillow
 tqdm
 psutil
-torch
-torchvision
+ultralytics
 transformers
 addict
 yapf
@@ -16,3 +17,6 @@ onnx
 tqdm
 pillow
 opencv-python
+torch
+torchvision
+config
