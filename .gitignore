@@ -169,3 +169,52 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# ----------------
+#  OS / Environment
+# ----------------
+.DS_Store
+Thumbs.db
+.env
+.venv/
+venv/
+env/
+
+# ---------------
+#  Python Caches
+# ---------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# ----------------------
+#  Large Model Artifacts
+# ----------------------
+*.pth
+*.pt
+weights/
+
+# ---------------------------------
+#  Node & Front-End Build Artifacts
+# ---------------------------------
+node_modules/
+dist/
+build/
+
+# -------------
+#  Log / Temp
+# -------------
+*.log
+*.temp
+*.tmp
+
+# -------------
+#  Misc
+# -------------
+.ipynb_checkpoints/
+
+.jpg
+.png
+
+#UPDATES
