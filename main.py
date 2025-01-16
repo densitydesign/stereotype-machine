@@ -12,8 +12,8 @@ if __name__ == "__main__":
     root.title("EMIF Multi-App GUI")
 
     # Set window dimensions
-    screen_width = root.winfo_screenwidth() - 100
-    screen_height = root.winfo_screenheight() - 100
+    screen_width = 1200 
+    screen_height = 600
 
     # Create a notebook (tabbed interface)
     notebook = ttk.Notebook(root)

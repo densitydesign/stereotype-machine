@@ -1,3 +1,4 @@
+#create_grids.py
 import os
 from PIL import Image
 from tqdm import tqdm
@@ -8,15 +9,12 @@ root_dir = '/Users/tommasoprinetti/Desktop/Upscaled_Images'
 output_dir = '/Users/tommasoprinetti/Desktop/DB_GRIDS'
 grid_gap = 100  # Gap between images in the grid
 
-def find_images(root_dir):
+def find_images(root_dir,nation_pattern, category_pattern):
     """
     Find and group images based on nation and category (e.g., family, working).
     """
     print("\n=== Debug: Starting image search ===")
     nation_category_dict = {}
-    
-    nation_pattern = r"(Cypriot|Greek|Italy|Croatia|Portugal|Romania|Slovakia|Ukraine|Estonia|Czech)"
-    category_pattern = r"(family|working)"
     
     for subdir, _, files in os.walk(root_dir):
         print(f"Scanning directory: {subdir}")
@@ -42,7 +40,7 @@ def find_images(root_dir):
     print("\n=== Debug: Completed image search ===")
     return nation_category_dict
 
-def create_image_grids(root_dir, grid_size=(6, 6), output_dir=output_dir):
+def create_image_grids(root_dir, category_pattern, grid_size=(6, 6), output_dir=None, nation_pattern=None):
     """
     Create image grids for each nation and category.
     """
@@ -50,9 +48,10 @@ def create_image_grids(root_dir, grid_size=(6, 6), output_dir=output_dir):
     os.makedirs(output_dir, exist_ok=True)
 
     # Find images grouped by nation and category
-    nation_category_dict = find_images(root_dir)
+    nation_category_dict = find_images(root_dir, nation_pattern,category_pattern)
     for nation, categories in nation_category_dict.items():
         for category, image_paths in categories.items():
+
             print(f"Found {len(image_paths)} images for nation '{nation}', category '{category}'")
 
             # Process images in batches to create grids
@@ -61,6 +60,7 @@ def create_image_grids(root_dir, grid_size=(6, 6), output_dir=output_dir):
 
                 # Load images
                 images = []
+
                 for img_path in tqdm(grid_images, desc="Loading images", leave=False):
                     try:
                         img = Image.open(img_path).convert('RGBA')

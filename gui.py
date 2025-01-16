@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 import threading
 import time
 from image_generation.generate_pipeline import generate_images
@@ -9,6 +9,7 @@ import sys
 import tkinter.filedialog as fd
 import os
 from image_cutting_sam2 import process_images
+from create_grids import create_image_grids, find_images
 from PIL import Image, ImageTk
 import queue
 import logging
@@ -25,7 +26,6 @@ def log_widget_info(widget, name="Widget"):
         logging.debug(f"{name}: {widget.winfo_class()} at {widget.winfo_geometry()}")
     except Exception as e:
         logging.error(f"Error logging {name}: {e}")
-
 
 class DebugMixin:
     """Mixin class to add debug logging for GUI components."""
@@ -680,20 +680,152 @@ class GridCreationApp:
             text=(
                 "\n This section allows you to create a grid layout for your images."
                 "\n The script automatically sorts the images based on their nation and category."
-                "\n The output will be a series of grids, in .JPG format, to be included in PSD post-processing"
+                "\n The output will be a series of grids, in .PNG format, to be included in PSD post-processing."
+                "\n Specify keywords for nations and categories (comma-separated)."
             ),
-            wraplength=400,  # Set a maximum width for the text
-            justify="left",  # Align the text to the left
+            wraplength=400,
+            justify="left",
         )
         description_label.pack(pady=10)
+
+        disclaimer_label = tk.Label(
+            self.frame,
+            text="Note: Please enter a comma-separated list for Nation Keywords and Category Keywords.",
+            font=("InstrumentSans", 10, "italic"),
+            fg="gray",
+        )
+        disclaimer_label.pack(pady=5)
+
+        # Input Folder Selection
+        input_label = tk.Label(self.frame, text="Input Folder:", font=("InstrumentSans", 12))
+        input_label.pack(pady=5)
+        input_frame = tk.Frame(self.frame)
+        input_frame.pack(pady=5)
+        self.input_entry = tk.Entry(input_frame, width=40)
+        self.input_entry.insert(0, "/Users/tommasoprinetti/Desktop/Upscaled_Images")  # Default path
+        self.input_entry.pack(side="left", padx=5)
+        input_browse = tk.Button(input_frame, text="Browse", command=self.browse_input_folder)
+        input_browse.pack(side="left", padx=5)
+
+        # Output Folder Selection
+        output_label = tk.Label(self.frame, text="Output Folder:", font=("InstrumentSans", 12))
+        output_label.pack(pady=5)
+        output_frame = tk.Frame(self.frame)
+        output_frame.pack(pady=5)
+        self.output_entry = tk.Entry(output_frame, width=40)
+        self.output_entry.insert(0, "/Users/tommasoprinetti/Desktop/DB_GRIDS")  # Default path
+        self.output_entry.pack(side="left", padx=5)
+        output_browse = tk.Button(output_frame, text="Browse", command=self.browse_output_folder)
+        output_browse.pack(side="left", padx=5)
+
+        # Nation Pattern Input
+        pattern_label = tk.Label(self.frame, text="Nation Keywords (comma-separated):", font=("InstrumentSans", 12))
+        pattern_label.pack(pady=5)
+        self.pattern_entry = tk.Entry(self.frame, width=50)
+        self.pattern_entry.insert(0, "Cypriot,Greek,Italy,Croatia,Portugal,Romania,Slovakia,Ukraine,Estonia,Czech")
+        self.pattern_entry.pack(pady=5)
+        self.pattern_entry.bind("<KeyRelease>", self.resize_entry_box)
+
+        # Category Pattern Input
+        category_label = tk.Label(self.frame, text="Category Keywords (comma-separated):", font=("InstrumentSans", 12))
+        category_label.pack(pady=5)
+        self.category_entry = tk.Entry(self.frame, width=50)
+        self.category_entry.insert(0, "family,working")
+        self.category_entry.pack(pady=5)
+
+        # Grid Size Inputs
+        grid_size_label = tk.Label(self.frame, text="Grid Size (Rows x Columns):", font=("InstrumentSans", 12))
+        grid_size_label.pack(pady=5)
+
+        # Row input
+        row_frame = tk.Frame(self.frame)
+        row_frame.pack(pady=5)
+        row_label = tk.Label(row_frame, text="Rows:", font=("InstrumentSans", 10))
+        row_label.pack(side="left", padx=5)
+        self.rows_entry = tk.Entry(row_frame, width=10)
+        self.rows_entry.insert(0, "6")  # Default rows
+        self.rows_entry.pack(side="left", padx=5)
+
+        # Column input
+        col_frame = tk.Frame(self.frame)
+        col_frame.pack(pady=5)
+        col_label = tk.Label(col_frame, text="Columns:", font=("InstrumentSans", 10))
+        col_label.pack(side="left", padx=5)
+        self.cols_entry = tk.Entry(col_frame, width=10)
+        self.cols_entry.insert(0, "6")  # Default columns
+        self.cols_entry.pack(side="left", padx=5)
+
+        # Progress Bar
+        progress_label = tk.Label(self.frame, text="Progress:", font=("InstrumentSans", 12))
+        progress_label.pack(pady=5)
+        self.progress_bar = ttk.Progressbar(self.frame, orient="horizontal", length=400, mode="determinate")
+        self.progress_bar.pack(pady=5)
 
         # Run Grid Maker Button
         grid_button = tk.Button(self.frame, text="Run Grid Maker", command=self.run_grid_maker)
         grid_button.pack(pady=10)
 
+    def browse_input_folder(self):
+        folder = filedialog.askdirectory()
+        if folder:
+            self.input_entry.delete(0, tk.END)
+            self.input_entry.insert(0, folder)
+
+    def browse_output_folder(self):
+        folder = filedialog.askdirectory()
+        if folder:
+            self.output_entry.delete(0, tk.END)
+            self.output_entry.insert(0, folder)
+
+    def resize_entry_box(self, event):
+        """Dynamically resize the nation keywords entry box based on its content."""
+        content_length = len(self.pattern_entry.get())
+        new_width = max(10, min(100, content_length))  # Keep the width between 10 and 100
+        self.pattern_entry.config(width=new_width)
+
+    def update_progress(self, progress, total):
+        """Update the progress bar."""
+        self.progress_bar["value"] = (progress / total) * 100
+        self.frame.update_idletasks()
+
     def run_grid_maker(self):
-        # Implement your logic for running the grid maker here
-        messagebox.showinfo("Info", "Grid creation completed successfully!")
+        # Get the input and output directories
+        root_dir = self.input_entry.get()
+        output_dir = self.output_entry.get()
+
+        # Get the user-defined nation and category patterns
+        nation_keywords = self.pattern_entry.get()
+        category_keywords = self.category_entry.get()
+
+        # Convert comma-separated keywords into regex patterns
+        nation_pattern = "|".join([kw.strip() for kw in nation_keywords.split(",")])
+        category_pattern = "|".join([kw.strip() for kw in category_keywords.split(",")])
+
+        # Get grid size from user input
+        try:
+            rows = int(self.rows_entry.get())
+            cols = int(self.cols_entry.get())
+            grid_size = (rows, cols)
+        except ValueError:
+            messagebox.showerror("Error", "Please enter valid integers for rows and columns.")
+            return
+
+        # Use the create_image_grids function with progress tracking
+        try:
+            total_steps = 100  # Placeholder for the number of steps
+            for i in range(total_steps):  # Replace with actual steps in your logic
+                self.update_progress(i + 1, total_steps)
+            create_image_grids(
+                root_dir,
+                grid_size=grid_size,
+                output_dir=output_dir,
+                nation_pattern=nation_pattern,
+                category_pattern=category_pattern,
+            )
+            self.update_progress(total_steps, total_steps)  # Ensure progress is complete
+            messagebox.showinfo("Info", "Grid creation completed successfully!")
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred during grid creation: {e}")
 
 # To initialize the app in main.py
 if __name__ == "__main__":
