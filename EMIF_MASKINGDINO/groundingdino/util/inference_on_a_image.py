@@ -5,9 +5,6 @@ import sys
 import numpy as np
 import torch
 from PIL import Image, ImageDraw, ImageFont
-#sys.path.append("..")
-
-#sys.path.append("/Users/tommasoprinetti/Documents/DENSITY_OFFICE/EMIF/GroundingDino/GroundingDINO")
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
 parent_dir = os.path.abspath(os.path.join(current_dir, '..'))

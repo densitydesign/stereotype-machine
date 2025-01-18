@@ -4,9 +4,12 @@ from PIL import Image
 from tqdm import tqdm
 import re
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = current_dir
+
 # Input and output directories
-root_dir = '/Users/tommasoprinetti/Desktop/Upscaled_Images'
-output_dir = '/Users/tommasoprinetti/Desktop/DB_GRIDS'
+root_dir = ''
+output_dir = ''
 grid_gap = 100  # Gap between images in the grid
 
 def find_images(root_dir,nation_pattern, category_pattern):

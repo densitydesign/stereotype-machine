@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import threading
 import time
-from image_generation.generate_pipeline import generate_images
+from image_generation.generate_pipeline import generate_images, upscale_image
 from image_generation.variable_set import variable_sets
 import queue
 import sys
@@ -13,6 +13,10 @@ from create_grids import create_image_grids, find_images
 from PIL import Image, ImageTk
 import queue
 import logging
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = current_dir
+folder_path = os.path.join(project_root, "Output_Folder")
 
 logging.basicConfig(
     filename="gui_debug.log",
@@ -40,9 +44,9 @@ class ImageGenerationApp:
         self.frame = frame
 
         # Folder path variables
-        desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
-        self.default_generated_folder = os.path.join(desktop_path, "Generated_Images")
-        self.default_upscaled_folder = os.path.join(desktop_path, "Upscaled_Images")
+        self.default_generated_folder = os.path.join(project_root, "Generated_Images")
+        self.default_upscaled_folder = os.path.join(project_root, "Upscaled_Images")
+        
         os.makedirs(self.default_generated_folder, exist_ok=True)
         os.makedirs(self.default_upscaled_folder, exist_ok=True)
 
@@ -77,21 +81,34 @@ class ImageGenerationApp:
 
     def display_image(self, image_path):
         """
-        Display the last generated image in the UI.
+        Display the last generated image in the UI, ensuring that it fits within the container.
+        
         Args:
             image_path (str): Path to the image to display.
         """
         try:
             logging.debug(f"Attempting to display image: {image_path}")
-            # Open and resize the image to fit the label
+            # Open the image
             img = Image.open(image_path)
-            img = img.resize((700, 700), Image.Resampling.LANCZOS)
+            
+            # Obtain container dimensions from the image label
+            container_width = self.image_label.winfo_width()
+            container_height = self.image_label.winfo_height()
+            
+            # If the container dimensions are not yet available (or too small), use defaults
+            if container_width < 10 or container_height < 10:
+                container_width, container_height = 700, 700
+            
+            # Resize the image to fit within the container, preserving the aspect ratio.
+            # The thumbnail() method modifies the image in place.
+            img.thumbnail((container_width, container_height), Image.Resampling.LANCZOS)
+            
+            # Convert the image to a format Tkinter can display
             photo = ImageTk.PhotoImage(img)
-
-            # Update the label with the new image
-            self.image_label.config(image=photo)
+            
+            # Update the label with the new image and clear any placeholder text.
+            self.image_label.config(image=photo, text="")
             self.image_label.image = photo  # Keep a reference to avoid garbage collection
-            self.image_label.config(text="")  # Clear the placeholder text
             logging.info(f"Image displayed: {image_path}")
 
         except FileNotFoundError:
@@ -136,41 +153,43 @@ class ImageGenerationApp:
         selection_frame = tk.Frame(self.frame)
         selection_frame.pack(pady=10)
 
-        # Nation selection
-        nation_label = tk.Label(selection_frame, text="Select Nation:")
-        nation_label.grid(row=0, column=0, sticky="e", padx=5, pady=5)
-        nations = sorted({variable['language'] for variable in variable_sets})
-        self.nation_var = tk.StringVar(value=nations[0])
-        self.nation_combobox = ttk.Combobox(selection_frame, textvariable=self.nation_var, values=nations, state="readonly")
-        self.nation_combobox.grid(row=0, column=1, sticky="w", padx=5, pady=5)
-        self.nation_combobox.current(0)
+        # Nation selection with note and default value
+        nation_note = tk.Label(selection_frame, text="Write here the nationality of what you want to generate:", font=("InstrumentSans", 8), fg="gray")
+        nation_note.grid(row=0, column=0, columnspan=2, sticky="w", padx=5, pady=(5, 0))
 
-        logging.debug("Nation combobox setup completed")
+        nation_label = tk.Label(selection_frame, text="Enter Nationality:")
+        nation_label.grid(row=1, column=0, sticky="e", padx=5, pady=5)
+        self.nation_var = tk.StringVar(value="Italian")  # Pre-inserted default value (modify as needed)
+        nation_entry = tk.Entry(selection_frame, textvariable=self.nation_var)
+        nation_entry.grid(row=1, column=1, sticky="w", padx=5, pady=5)
 
-        # Category selection
-        category_label = tk.Label(selection_frame, text="Select Category:")
-        category_label.grid(row=1, column=0, sticky="e", padx=5, pady=5)
-        categories = ["family", "working"]
-        self.category_var = tk.StringVar(value=categories[0])  # Set to the first valid option
-        self.category_combobox = ttk.Combobox(selection_frame, textvariable=self.category_var, values=categories, state="readonly")
-        self.category_combobox.grid(row=1, column=1, sticky="w", padx=5, pady=5)
-        self.category_combobox.current(0)  # Set the default selection explicitly
+        # Category selection with note and default value
+        category_note = tk.Label(selection_frame, text="Write here the category you want to generate:", font=("InstrumentSans", 8), fg="gray")
+        category_note.grid(row=2, column=0, columnspan=2, sticky="w", padx=5, pady=(5, 0))
 
-        steps_label = tk.Label(selection_frame, text="Number of Steps:")
-        steps_label.grid(row=2, column=0, sticky="e", padx=5, pady=5)
-        self.steps_combobox = ttk.Combobox(selection_frame, textvariable=self.steps_var, values=self.steps_options, state="readonly")
-        self.steps_combobox.grid(row=2, column=1, sticky="w", padx=5, pady=5)
+        category_label = tk.Label(selection_frame, text="Enter Category:")
+        category_label.grid(row=3, column=0, sticky="e", padx=5, pady=5)
+        self.category_var = tk.StringVar(value="Family")  # Pre-inserted default value (modify as needed)
+        category_entry = tk.Entry(selection_frame, textvariable=self.category_var)
+        category_entry.grid(row=3, column=1, sticky="w", padx=5, pady=5)
 
         # Number of images
         num_images_label = tk.Label(selection_frame, text="Number of Images:")
-        num_images_label.grid(row=3, column=0, sticky="e", padx=5, pady=5)
+        num_images_label.grid(row=4, column=0, sticky="e", padx=5, pady=5)
         self.num_images_var = tk.StringVar(value="1")
         num_images_entry = tk.Entry(selection_frame, textvariable=self.num_images_var)
-        num_images_entry.grid(row=3, column=1, sticky="w", padx=5, pady=5)
+        num_images_entry.grid(row=4, column=1, sticky="w", padx=5, pady=5)
+
+        # Number of Steps selection remains unchanged
+        steps_label = tk.Label(selection_frame, text="Number of Steps:")
+        steps_label.grid(row=5, column=0, sticky="e", padx=5, pady=5)
+        self.steps_combobox = ttk.Combobox(selection_frame, textvariable=self.steps_var, values=self.steps_options, state="readonly")
+        self.steps_combobox.grid(row=5, column=1, sticky="w", padx=5, pady=5)
 
         # Add to Queue button
         add_to_queue_button = tk.Button(selection_frame, text="Add to Queue", command=self.add_to_queue)
-        add_to_queue_button.grid(row=4, column=0, columnspan=2, pady=10)
+        add_to_queue_button.grid(row=6, column=0, columnspan=2, pady=10)
+
 
         # Folder selection for generated images
         folder_frame = tk.Frame(self.frame)
@@ -302,8 +321,11 @@ class ImageGenerationApp:
 
     def select_upscaled_folder(self):
         folder_path = fd.askdirectory(title="Select Folder for Upscaled Images")
+        
         if folder_path:
             self.upscaled_folder.set(folder_path)
+
+        return folder_path
 
     def add_to_queue(self):
         chosen_nation = self.nation_var.get()
@@ -315,7 +337,7 @@ class ImageGenerationApp:
         if not chosen_nation:
             messagebox.showerror("Error", "Please select a nation.")
             return
-        if category not in ["family", "working"]:
+        if not category:
             messagebox.showerror("Error", "Please select a category.")
             return
         if not num_images_str.isdigit():
@@ -380,7 +402,7 @@ class ImageGenerationApp:
 
             try:
                 # Display the dummy image as a placeholder
-                dummy_image_path = "/Users/tommasoprinetti/Documents/EMIF_REHARSAL/ROOT/EMIF_MASKINGDINO/BG_dummy.png"
+                dummy_image_path = f"{project_root}/BG_dummy.png"
                 if os.path.exists(dummy_image_path):
                     self.display_image(dummy_image_path)
                 else:
@@ -498,8 +520,8 @@ class ImageGenerationApp:
 class ImageCuttingApp:
     def __init__(self, frame):
         self.frame = frame
-        self.input_folder = tk.StringVar(value="/Users/tommasoprinetti/Desktop/Upscaled_Images")
-        self.output_folder = tk.StringVar(value="/Users/tommasoprinetti/Desktop/CutOut_Images")
+        self.input_folder = tk.StringVar(value=f"{project_root}/Upscaled_Images")
+        self.output_folder = tk.StringVar(value=f"{folder_path}")
         self.start_from_zero = tk.BooleanVar(value=True)
         self.log_text = None
 
@@ -511,7 +533,6 @@ class ImageCuttingApp:
         self._setup_gui()
 
     def _setup_gui(self):
-        # Title Label
         title_label = tk.Label(self.frame, text="Image Cutting App", font=("InstrumentSans", 16, "bold"))
         title_label.pack(pady=10)
 
@@ -531,26 +552,31 @@ class ImageCuttingApp:
         # Input Folder Selection
         input_frame = tk.Frame(self.frame)
         input_frame.pack(pady=5, fill="x")
-        tk.Label(input_frame, text="Input Folder:").grid(row=0, column=0, sticky="e", padx=5)
-        tk.Entry(input_frame, textvariable=self.input_folder, width=50).grid(row=0, column=1, padx=5)
-        tk.Button(input_frame, text="Browse", command=self.select_input_folder).grid(row=0, column=2, padx=5)
+        tk.Label(input_frame, text="Input Folder:", font=("InstrumentSans", 12)).grid(row=0, column=0, sticky="e", padx=5)
+        browse_input_button = tk.Button(input_frame, text="Browse", command=self.select_input_folder)
+        browse_input_button.grid(row=0, column=1, padx=5)
+        # Remove fixed width and use sticky "we"
+        self.input_folder_label = tk.Label(input_frame, textvariable=self.input_folder, anchor="w")
+        self.input_folder_label.grid(row=0, column=2, sticky="we", padx=5)
+        # Make the label column expand
+        input_frame.grid_columnconfigure(2, weight=1)
 
         # Output Folder Selection
         output_frame = tk.Frame(self.frame)
         output_frame.pack(pady=5, fill="x")
-        tk.Label(output_frame, text="Output Folder:").grid(row=1, column=0, sticky="e", padx=5)
-        tk.Entry(output_frame, textvariable=self.output_folder, width=50).grid(row=1, column=1, padx=5)
-        tk.Button(output_frame, text="Browse", command=self.select_output_folder).grid(row=1, column=2, padx=5)
+        tk.Label(output_frame, text="Output Folder:", font=("InstrumentSans", 12)).grid(row=0, column=0, sticky="e", padx=5)
+        browse_output_button = tk.Button(output_frame, text="Browse", command=self.select_output_folder)
+        browse_output_button.grid(row=0, column=1, padx=5)
+        self.output_folder_label = tk.Label(output_frame, textvariable=self.output_folder, anchor="w")
+        self.output_folder_label.grid(row=0, column=2, sticky="we", padx=5)
+        output_frame.grid_columnconfigure(2, weight=1)
 
         # Text input for tags
-
         tags_frame = tk.LabelFrame(self.frame, text="Select Tags for Cutting, write comma-separated keywords")
         tags_frame.pack(pady=10, fill="x")
-
         self.custom_tags = tk.StringVar()
         default_tags = ", ".join(self.text_prompts.keys())  # Pre-fill with default tags
-        self.custom_tags.set(default_tags)  # Set default tags in the entry
-
+        self.custom_tags.set(default_tags)
         tk.Label(tags_frame, text="Tags:").pack(side=tk.LEFT, padx=5, pady=5)
         tk.Entry(tags_frame, textvariable=self.custom_tags, width=50).pack(side=tk.LEFT, padx=5, pady=5)
 
@@ -572,7 +598,6 @@ class ImageCuttingApp:
 
         logging.debug(f"Image Cutting frame parent: {self.frame.winfo_parent()}")
         logging.debug(f"Image Cutting frame geometry: {self.frame.winfo_width()}x{self.frame.winfo_height()}")
-
 
     def select_input_folder(self):
         folder = fd.askdirectory(title="Select Input Folder")
@@ -629,7 +654,7 @@ class ImageCuttingApp:
             self.log_message(f"Start From Zero: {start_from_zero}")
 
             process_images(
-                root_folder=input_folder,
+                input_folder=input_folder,
                 output_folder=output_folder,
                 start_from_zero=start_from_zero,
                 selected_tags=selected_tags,
@@ -701,9 +726,20 @@ class GridCreationApp:
         input_label.pack(pady=5)
         input_frame = tk.Frame(self.frame)
         input_frame.pack(pady=5)
-        self.input_entry = tk.Entry(input_frame, width=40)
-        self.input_entry.insert(0, "/Users/tommasoprinetti/Desktop/Upscaled_Images")  # Default path
+
+        self.input_var = tk.StringVar()
+        default_input = f"{project_root}/Upscaled_Images"
+        self.input_var.set(default_input)
+
+        def adjust_entry_width(*args):
+            # Compute a new width, here we use max(40, number of characters + 2)
+            new_width = max(40, len(self.input_var.get()) + 2)
+            self.input_entry.config(width=new_width)
+
+        self.input_var.trace_add("write", adjust_entry_width)
+        self.input_entry = tk.Entry(input_frame, textvariable=self.input_var, width=40)
         self.input_entry.pack(side="left", padx=5)
+
         input_browse = tk.Button(input_frame, text="Browse", command=self.browse_input_folder)
         input_browse.pack(side="left", padx=5)
 
@@ -713,7 +749,7 @@ class GridCreationApp:
         output_frame = tk.Frame(self.frame)
         output_frame.pack(pady=5)
         self.output_entry = tk.Entry(output_frame, width=40)
-        self.output_entry.insert(0, "/Users/tommasoprinetti/Desktop/DB_GRIDS")  # Default path
+        self.output_entry.insert(0, f"{project_root}/DB_GRIDS")  # Default path
         self.output_entry.pack(side="left", padx=5)
         output_browse = tk.Button(output_frame, text="Browse", command=self.browse_output_folder)
         output_browse.pack(side="left", padx=5)
@@ -722,7 +758,7 @@ class GridCreationApp:
         pattern_label = tk.Label(self.frame, text="Nation Keywords (comma-separated):", font=("InstrumentSans", 12))
         pattern_label.pack(pady=5)
         self.pattern_entry = tk.Entry(self.frame, width=50)
-        self.pattern_entry.insert(0, "Cypriot,Greek,Italy,Croatia,Portugal,Romania,Slovakia,Ukraine,Estonia,Czech")
+        self.pattern_entry.insert(0, "Italian, Greek")
         self.pattern_entry.pack(pady=5)
         self.pattern_entry.bind("<KeyRelease>", self.resize_entry_box)
 
@@ -812,7 +848,7 @@ class GridCreationApp:
 
         # Use the create_image_grids function with progress tracking
         try:
-            total_steps = 100  # Placeholder for the number of steps
+            total_steps = 30
             for i in range(total_steps):  # Replace with actual steps in your logic
                 self.update_progress(i + 1, total_steps)
             create_image_grids(

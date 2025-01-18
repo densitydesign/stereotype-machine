@@ -98,11 +98,14 @@ def generate_images(nation, category, num_images, generated_folder=None, upscale
 
     # Check if any matching variable sets were found
     if not filtered_variable_sets:
-        print(f"No matching variables found for {nation} - {category}")
-        return
+        print(f"No matching variables found for {nation} - {category}. Using a generic prompt.")
+        filtered_variable_sets = [{"prompt_addition": f"{nation} {category}"}]
+
+    last_image_path = None  
 
     # Iterate over the filtered variable sets
     for variables in filtered_variable_sets:
+        
         # Construct the prompt using the selected set of variables
         prompt = f"{variables['prompt_addition']}, (35mm lens photography), extremely detailed, 4k, shot on dslr, photorealistic, photographic, sharp"
         txt2img_data["prompt"] = prompt
@@ -139,10 +142,8 @@ def generate_images(nation, category, num_images, generated_folder=None, upscale
                     image.save(image_path)
                     print(f"Image saved at {image_path}")
 
-                    last_image_path = image_path
-
                     # Proceed to img2img upscale
-                    upscale_image(image_path, nation, category, upscaled_folder)
+                    last_image_path = upscale_image(image_path, nation, category, upscaled_folder)
 
             except Exception as e:
                 print(f"Error while generating images for {nation} - {category}: {e}")
@@ -214,6 +215,8 @@ def upscale_image(image_path, nation, category, upscaled_folder):
 
     except Exception as e:
         print(f"Error during img2img upscaling for image {image_path}: {e}")
+
+    return final_image_path
 
 def encode_image_to_base64(image_path):
     """

@@ -17,8 +17,9 @@ import logging
 from PIL import Image
 from multiprocessing import Pool
 from PIL import ImageDraw
+from torchvision.ops import box_convert
 
-from scipy.ndimage import binary_fill_holes, generate_binary_structure, label
+from scipy.ndimage import label
 
 # Adding paths to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -34,20 +35,9 @@ sys.path.append(emif_maskingdino_path)
 from GroundingDINO.groundingdino.util.inference import load_model, load_image
 from GroundingDINO.demo.inference_on_a_image import get_grounding_output
 
-#from Groundin.groundingdino.util.inference import load_model, load_image #THIS HAS TO BE SOLVED
-#from EMIF_MASKINGDINO.groundingdino.util.inference_on_a_image import get_grounding_output #THIS HAS TO BE SOLVED
-
-#from image_cutting.config.text_prompts import text_prompts
-
-from torchvision.ops import box_convert
-
-#warnings.filterwarnings("ignore", category=UserWarning)
-#warnings.filterwarnings("ignore", category=FutureWarning)
-
 TEXT_THRESHOLD = 0.35
-global_folder = '/Users/tommasoprinetti/Desktop/ROOT_FOLDER'
-model_folder = '/Users/tommasoprinetti/Documents/EMIF_REHARSAL/ROOT/EMIF_MASKINGDINO/model_folder'
-sam_model = SAM(f"{model_folder}/sam_l.pt")
+model_folder = os.path.join(project_root, 'EMIF_MASKINGDINO', 'model_folder')
+sam_model = SAM(os.path.join(model_folder, "sam_l.pt"))
 
 mode = "predict"
 
@@ -68,11 +58,48 @@ def worker_init():
     else:
         global_device = torch.device('cpu')
 
-    global_model = load_model(
-        "/Users/tommasoprinetti/Documents/EMIF_REHARSAL/ROOT/EMIF_MASKINGDINO/weights/GroundingDINO_SwinB_cfg.py",
-        f"{model_folder}/groundingdino_swinb_cogcoor.pth",
-        device=global_device
-    )
+    model_filename = "groundingdino_swinb_cogcoor.pth"
+    cfg_filename   = "GroundingDINO_SwinB_cfg.py"
+    model_path = os.path.join(model_folder, model_filename)
+    cfg_path   = os.path.join(model_folder, cfg_filename)
+
+    DOWNLOAD_URL = "https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha2/groundingdino_swinb_cogcoor.pth"
+    DOWNLOAD_URL_CFG = "https://raw.githubusercontent.com/IDEA-Research/GroundingDINO/main/groundingdino/config/GroundingDINO_SwinB_cfg.py"
+
+    # Download the model file if not present
+    if not os.path.exists(model_path):
+        print(f"Model file not found at {model_path}. Downloading from {DOWNLOAD_URL} ...")
+        try:
+            import requests  # Ensure requests is available
+            response = requests.get(DOWNLOAD_URL, stream=True)
+            response.raise_for_status()  # Raise an exception for any errors
+            os.makedirs(model_folder, exist_ok=True)
+            with open(model_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+            print("Model download complete.")
+        except Exception as e:
+            print(f"Error downloading model: {e}")
+            sys.exit(1)
+
+    # Download the configuration file if not present
+    if not os.path.exists(cfg_path):
+        print(f"Config file not found at {cfg_path}. Downloading from {DOWNLOAD_URL_CFG} ...")
+        try:
+            response = requests.get(DOWNLOAD_URL_CFG, stream=True)
+            response.raise_for_status()
+            with open(cfg_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+            print("Config file download complete.")
+        except Exception as e:
+            print(f"Error downloading config file: {e}")
+            sys.exit(1)
+
+    # Now load the model using the downloaded configuration file and model file.
+    global_model = load_model(cfg_path, model_path, device=global_device)
 
 def createBoxes(image_path: str, text_prompt: str, box_threshold: float):
     global global_model, global_device
@@ -213,12 +240,14 @@ def extractImages(boxes_xyxy, image_path: str, text_prompt: str, output_folder: 
 
     # 3. Create a SAMPredictor with some global overrides
     #    Adjust or add as needed: conf, imgsz, model, etc.
+
     overrides = dict(
         conf=0.2,         # Confidence threshold
-        mode=mode,   # Ensures we do inference
+        mode=mode,   # Ensures we do inference 
         imgsz=1024,       # Higher resolution may yield finer masks
         model="sam_l.pt"  # If needed, or use a different checkpoint
     )
+    
     predictor = SAMPredictor(overrides=overrides)
 
     try:
@@ -228,10 +257,11 @@ def extractImages(boxes_xyxy, image_path: str, text_prompt: str, output_folder: 
         # 5. Call predictor based on mode
         if mode == "predict":
             print(f"Running SAM in 'predict' mode on {image_path}...")
+
             results = predictor(
                 bboxes=boxes_xyxy,
-                points_stride=64,  # Advanced argument
-                crop_n_layers=1,  # Advanced argument
+                points_stride=64, 
+                crop_n_layers=1, 
             )
 
         elif mode == "segment":
@@ -328,13 +358,10 @@ def get_last_processed_image(log_file):
     except FileNotFoundError:
         return None
 
-def process_images(root_folder, output_folder, start_from_zero=True, selected_tags=None, log_callback=None):
+def process_images(input_folder, output_folder, start_from_zero=True, selected_tags=None, log_callback=None):
     """
     Processes images in the input folder based on selected tags and saves them to the output folder.
     """
-
-    if not os.path.exists(global_folder):
-        raise FileNotFoundError(f"Global folder not found: {global_folder}")
 
     if not os.path.exists(model_folder):
         raise FileNotFoundError(f"Model folder not found: {model_folder}")
@@ -345,7 +372,7 @@ def process_images(root_folder, output_folder, start_from_zero=True, selected_ta
     if selected_tags is None:
         selected_tags = {}
 
-    log_file = f'{global_folder}/process_log.txt'
+    log_file = f'{project_root}/process_log.txt'
     logging.basicConfig(filename=log_file, level=logging.INFO)
 
     # If start_from_zero is True, erase the log file
@@ -356,7 +383,7 @@ def process_images(root_folder, output_folder, start_from_zero=True, selected_ta
         last_processed_image = get_last_processed_image(log_file)
 
     log_callback("Starting image processing...")
-    log_callback(f"Root folder: {root_folder}")
+    log_callback(f"Root folder: {input_folder}")
     log_callback(f"Output folder: {output_folder}")
     log_callback(f"Selected tags: {selected_tags}")
     log_callback(f"Start from zero: {start_from_zero}")
@@ -364,7 +391,7 @@ def process_images(root_folder, output_folder, start_from_zero=True, selected_ta
     # Build the list of tasks
     tasks = []
     for text_prompt, box_threshold in selected_tags.items():
-        for subdir, _, files in os.walk(root_folder):
+        for subdir, _, files in os.walk(input_folder):
             files.sort()
             # Count how many images total
             valid_images = [f for f in files if f.lower().endswith(('.png', '.jpg', '.jpeg', '.JPG'))]
@@ -373,7 +400,7 @@ def process_images(root_folder, output_folder, start_from_zero=True, selected_ta
                 input_image_path = os.path.join(subdir, file)
                 if last_processed_image and input_image_path <= last_processed_image:
                     continue
-                relative_path = os.path.relpath(subdir, root_folder)
+                relative_path = os.path.relpath(subdir, input_folder)
                 output_subfolder = os.path.join(output_folder, relative_path)
                 tasks.append((input_image_path, text_prompt, box_threshold, output_subfolder))
 
@@ -404,6 +431,6 @@ if __name__ == "__main__":
         device = torch.device('cpu')
 
     print("Your current device is:", device)
-    root_folder = f'/Users/tommasoprinetti/Desktop/Upscaled_Images'
-    output_folder = f'{global_folder}/OUTPUT_MASKS'
-    process_images(root_folder, output_folder, start_from_zero=True)
+    input_folder = f''
+    output_folder = f''
+    process_images(input_folder, output_folder, start_from_zero=True)
