@@ -75,7 +75,8 @@ python main.py
 
 The image generation panel works by defining a queue of operations to be fed to the [Drawthings app](https://apps.apple.com/it/app/draw-things-ai-generation/id6444050820?l=en-GB).
 
-NB: The _API SERVER_ option of Drawthings app must be activated and the port must be set to ![API SERVER](ReadMe_images/api_server.png) 127.0.0.1:7860 in order to work properly.
+**NB:** The _API SERVER_ option of Drawthings app must be activated and the port must be set to  
+<img src="ReadMe_images/api_server.png" alt="API SERVER" width="300"> `127.0.0.1:7860` in order to work properly.
 
 Then, all the configurations and model will be automatically downloaded by the script.
 
