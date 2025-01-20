@@ -32,7 +32,7 @@ def log_widget_info(widget, name="Widget"):
         logging.error(f"Error logging {name}: {e}")
 
 class DebugMixin:
-    """Mixin class to add debug logging for GUI components."""
+    """℠Mixin class to add debug logging for GUI components."""
 
     def debug_log(self, message):
         logging.debug(message)
