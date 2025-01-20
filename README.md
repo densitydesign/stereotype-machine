@@ -86,7 +86,7 @@ So just create the queue and launch the generation. On the right window you will
 
 The nationality and the category will be combined to create a prompt that will look like this:
 
-```pyton
+```python
 prompt = f"{variables['prompt_addition']}, (35mm lens photography), extremely detailed, 4k, shot on dslr, photorealistic, photographic, sharp"
 ```
 
