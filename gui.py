@@ -16,7 +16,7 @@ import logging
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = current_dir
-folder_path = os.path.join(project_root, "Output_Folder")
+folder_path = os.path.join(project_root, "Mask_folder")
 
 logging.basicConfig(
     filename="gui_debug.log",

@@ -126,6 +126,7 @@ celerybeat.pid
 
 # SageMath parsed files
 *.sage.py
+hiding/
 
 # Environments
 .env
@@ -218,5 +219,7 @@ build/
 .png
 *.png
 *.jpg
+.vscode
+.vscode/
 
 #UPDATES NEW

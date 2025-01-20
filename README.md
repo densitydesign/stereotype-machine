@@ -41,8 +41,8 @@ EMIF_Reloaded_UI is a user interface project designed to integrate and streamlin
 1. **Clone the Repository:**
 
    ```bash
-   git clone https://github.com/yourusername/EMIF_Reloaded_UI.git
-   cd EMIF_Reloaded_UI
+   git clone https://github.com/yourusername/EMIF_2.0.git
+   cd EMIF_2.0
    ```
 
 2. **Create a Virtual Environment with Python 3.12:**
@@ -68,6 +68,22 @@ After setting up the environment, you can start the application as follows:
 ```bash
 python main.py
 ```
+
+# Application itself
+
+## Image generation
+
+The image generation panel works by defining a queue of operations to be fed to the [Drawthings app](https://apps.apple.com/it/app/draw-things-ai-generation/id6444050820?l=en-GB).
+
+NB: The _API SERVER_ option of Drawthings app must be activated and the port must be set to ![API SERVER](ReadMe_images/api_server.png) 127.0.0.1:7860 in order to work properly.
+
+Then, all the configurations and model will be automatically downloaded by the script.
+
+![IMAGE GENERATION WINDOWS](ReadMe_images/1.png)
+
+## Image cutting
+
+## Grid creator
 
 ## ToDoList
 
