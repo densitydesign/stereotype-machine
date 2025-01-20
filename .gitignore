@@ -216,5 +216,7 @@ build/
 
 .jpg
 .png
+*.png
+*.jpg
 
 #UPDATES NEW

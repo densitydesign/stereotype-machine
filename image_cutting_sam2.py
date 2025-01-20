@@ -143,22 +143,13 @@ def extractImages(boxes_xyxy, sam_model, image_path: str, text_prompt: str, outp
     # Debug: Print inputs at the beginning
     print("=== Debug: Entering extractImages ===")
     print(f"Image path: {image_path}")
-    time.sleep(2)
     print(f"Text prompt: {text_prompt}")
-    time.sleep(2)
     print(f"Output folder: {output_folder}")
-    time.sleep(2)
     print(f"Bypass filling: {bypass_filling}")
-    time.sleep(2)
     print(f"Received boxes shape/type: {boxes_xyxy.shape if hasattr(boxes_xyxy, 'shape') else type(boxes_xyxy)}")
-    time.sleep(2)
     
     if len(boxes_xyxy) == 0:
         print(f"[DEBUG] No bounding boxes provided for {image_path}. Skipping.")
-        return
-    
-    if mode not in ["predict", "segment"]:
-        print(f"[DEBUG] Invalid mode: {mode}. Supported modes are 'predict' and 'segment'.")
         return
 
     # 2. Ensure the output folder exists
@@ -313,7 +304,7 @@ def get_last_processed_image(log_file):
     except FileNotFoundError:
         return None
 
-def process_images(input_folder, output_folder, sam_model, start_from_zero=True, selected_tags=None, log_callback=None):
+def process_images(input_folder, output_folder, sam_model, start_from_zero=True, selected_tags=None, log_callback=None, progress_callback=None):
 
     if log_callback is None:
         log_callback = print
@@ -322,7 +313,6 @@ def process_images(input_folder, output_folder, sam_model, start_from_zero=True,
         selected_tags = {}
 
     log_file = os.path.join(project_root, 'process_log.txt')
-
     logging.basicConfig(filename=log_file, level=logging.DEBUG,
                         format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -348,15 +338,22 @@ def process_images(input_folder, output_folder, sam_model, start_from_zero=True,
                 output_subfolder = os.path.join(output_folder, relative_path)
               
                 tasks.append((input_image_path, text_prompt, box_threshold, output_subfolder, sam_model))
-                #print("This is the tasklist:", tasks)
+
+    total_tasks = len(tasks)
+    log_callback(f"Total images to process: {total_tasks}")
 
     # Process tasks with multiprocessing.
     with Pool(processes=1, initializer=worker_init) as pool:
-        results = pool.imap_unordered(worker_process_image, tasks) #this is the core
-        with tqdm(total=len(tasks), desc="Processing Images") as pbar:
-            for result in results:
+        results = pool.imap_unordered(worker_process_image, tasks)
+        with tqdm(total=total_tasks, desc="Processing Images") as pbar:
+            for i, result in enumerate(results, start=1):
                 if result:
-                    log_callback("Task completed successfully.")
+                    log_callback("✅ Task completed successfully.")
                 else:
-                    log_callback("Task failed. See log for details.")
+                    log_callback("❌ Task failed. See log for details.")
                 pbar.update(1)
+                if progress_callback is not None:
+                    progress_callback(i, total_tasks)
+
+    if last_processed_image is None:
+        open(log_file, 'a').close()

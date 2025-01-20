@@ -520,6 +520,7 @@ class ImageGenerationApp:
 class ImageCuttingApp:
     def __init__(self, frame):
         self.frame = frame
+        # Assume project_root and folder_path are defined globally
         self.input_folder = tk.StringVar(value=f"{project_root}/Upscaled_Images")
         self.output_folder = tk.StringVar(value=f"{folder_path}")
         self.start_from_zero = tk.BooleanVar(value=True)
@@ -541,11 +542,11 @@ class ImageCuttingApp:
             self.frame,
             text=(
                 "\n ✂️ This section allows you to cut the images based on their content."
-                "\n 🔍 We recognise the elements in the images and cut them out."
-                "\n 📩 The output will be a series of images, in .JPG format, formatted as the originals in the output folder"
+                "\n 🔍 We recognize the elements in the images and cut them out."
+                "\n 📩 The output will be a series of images, in .JPG format."
             ),
-            wraplength=500,  # Set a maximum width for the text
-            justify="left",  # Align the text to the left
+            wraplength=500,
+            justify="left",
         )
         description_label.pack(pady=10)
 
@@ -555,10 +556,8 @@ class ImageCuttingApp:
         tk.Label(input_frame, text="Input Folder:", font=("InstrumentSans", 12)).grid(row=0, column=0, sticky="e", padx=5)
         browse_input_button = tk.Button(input_frame, text="Browse", command=self.select_input_folder)
         browse_input_button.grid(row=0, column=1, padx=5)
-        # Remove fixed width and use sticky "we"
         self.input_folder_label = tk.Label(input_frame, textvariable=self.input_folder, anchor="w")
         self.input_folder_label.grid(row=0, column=2, sticky="we", padx=5)
-        # Make the label column expand
         input_frame.grid_columnconfigure(2, weight=1)
 
         # Output Folder Selection
@@ -572,18 +571,16 @@ class ImageCuttingApp:
         output_frame.grid_columnconfigure(2, weight=1)
 
         # Text input for tags
-        tags_frame = tk.LabelFrame(self.frame, text="Select Tags for Cutting, write comma-separated keywords")
+        tags_frame = tk.LabelFrame(self.frame, text="Select Tags for Cutting (comma-separated)")
         tags_frame.pack(pady=10, fill="x")
         self.custom_tags = tk.StringVar()
-        default_tags = ", ".join(self.text_prompts.keys())  # Pre-fill with default tags
+        default_tags = ", ".join(self.text_prompts.keys())
         self.custom_tags.set(default_tags)
         tk.Label(tags_frame, text="Tags:").pack(side=tk.LEFT, padx=5, pady=5)
         tk.Entry(tags_frame, textvariable=self.custom_tags, width=50).pack(side=tk.LEFT, padx=5, pady=5)
 
         # Start From Zero Checkbox
-        start_from_zero_checkbox = tk.Checkbutton(
-            self.frame, text="Start From Zero", variable=self.start_from_zero
-        )
+        start_from_zero_checkbox = tk.Checkbutton(self.frame, text="Start From Zero", variable=self.start_from_zero)
         start_from_zero_checkbox.pack(pady=5)
 
         # Cutting Button
@@ -596,23 +593,27 @@ class ImageCuttingApp:
         self.log_text = tk.Text(self.frame, height=10, state=tk.DISABLED)
         self.log_text.pack(padx=10, pady=5, fill="both", expand=True)
 
+        # Progress Bar and Label
+        self.progress_var = tk.DoubleVar(value=0)
+        self.progress_bar = ttk.Progressbar(self.frame, variable=self.progress_var, maximum=100)
+        self.progress_bar.pack(fill="x", padx=10, pady=5)
+        self.progress_label = tk.Label(self.frame, text="Progress: 0% 😊")
+        self.progress_label.pack(pady=5)
+
         logging.debug(f"Image Cutting frame parent: {self.frame.winfo_parent()}")
         logging.debug(f"Image Cutting frame geometry: {self.frame.winfo_width()}x{self.frame.winfo_height()}")
 
     def select_input_folder(self):
-        folder = fd.askdirectory(title="Select Input Folder")
+        folder = filedialog.askdirectory(title="Select Input Folder")
         if folder:
             self.input_folder.set(folder)
 
     def select_output_folder(self):
-        folder = fd.askdirectory(title="Select Output Folder")
+        folder = filedialog.askdirectory(title="Select Output Folder")
         if folder:
             self.output_folder.set(folder)
 
     def run_image_cutting(self):
-        """
-        Start the image cutting process in a new thread and monitor its progress.
-        """
         tag_string = self.custom_tags.get()
         tags = [tag.strip() for tag in tag_string.split(",") if tag.strip()]
         selected_tags = {tag: self.text_prompts.get(tag, 0.25) for tag in tags}
@@ -629,12 +630,12 @@ class ImageCuttingApp:
             tag: threshold for tag, threshold in self.text_prompts.items()
             if self.selected_tags[tag].get()
         }
-
+        
         if not selected_text_prompts:
             messagebox.showerror("Error", "Please select at least one tag.")
             return
 
-        self.log_message("Starting image cutting...")
+        self.log_message("🚀 Starting image cutting...")
         thread = threading.Thread(
             target=self.process_images_thread,
             args=(input_folder, output_folder, start_from_zero, selected_tags)
@@ -643,14 +644,10 @@ class ImageCuttingApp:
         self.monitor_process()
 
     def process_images_thread(self, input_folder, output_folder, start_from_zero, selected_tags):
-        """
-        Thread function to process images with the selected tags.
-        """
         try:
-
             sam_model = initialize_sam_model()
-            self.log_message(f"Here is the SAM: {sam_model}")
-
+            self.log_message(f"🤖 SAM model initialized: {sam_model}")
+            # Pass our GUI progress callback to process_images.
             process_images(
                 input_folder=input_folder,
                 output_folder=output_folder,
@@ -658,28 +655,29 @@ class ImageCuttingApp:
                 start_from_zero=start_from_zero,
                 selected_tags=selected_tags,
                 log_callback=self.log_message,
+                progress_callback=self.update_progress
             )
-
-            self.process_queue.put("♣️ Queue successfully cut ♣️")
-        
+            self.process_queue.put("success")
         except Exception as e:
             self.process_queue.put(f"error:{str(e)}")
 
+    def update_progress(self, current, total):
+        percentage = (current / total) * 100
+        # Update the progress bar and label in the GUI thread.
+        self.frame.after(0, lambda: self.progress_var.set(percentage))
+        self.frame.after(0, lambda: self.progress_label.config(text=f"Progress: {percentage:.0f}% 🌟"))
+
     def monitor_process(self):
-        """
-        Monitor the process queue for messages and update the UI accordingly.
-        """
         try:
             result = self.process_queue.get_nowait()
             if result == "success":
-                self.log_message("Image cutting completed successfully!")
+                self.log_message("✅ Image cutting completed successfully!")
                 messagebox.showinfo("Success", "Image cutting completed successfully!")
             elif result.startswith("error:"):
                 error_message = result.split("error:", 1)[1]
-                self.log_message(f"Error during image cutting: {error_message}")
+                self.log_message(f"❌ Error during image cutting: {error_message}")
                 messagebox.showerror("Error", f"An error occurred: {error_message}")
         except queue.Empty:
-            # No messages in the queue yet
             self.frame.after(100, self.monitor_process)
 
     def log_message(self, message):
