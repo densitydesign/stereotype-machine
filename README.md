@@ -50,6 +50,8 @@ EMIF_Reloaded_UI is a user interface project designed to integrate and streamlin
    ```bash
    python3.12 -m venv venv
    source venv/bin/activate  # On macOS/Linux
+
+
    venv\Scripts\activate     # On Windows
    ```
 
@@ -66,3 +68,11 @@ After setting up the environment, you can start the application as follows:
 ```bash
 python main.py
 ```
+
+## ToDoList
+
+- [ ] Test script on fresh environment
+- [ ] Add photoshop file building support
+- [ ] Check input field open
+- [ ] Customize UI?
+- [ ] Add check for models and force download them if necessary

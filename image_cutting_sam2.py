@@ -239,7 +239,6 @@ def extractImages(boxes_xyxy, image_path: str, text_prompt: str, output_folder: 
         os.makedirs(output_folder)
 
     # 3. Create a SAMPredictor with some global overrides
-    #    Adjust or add as needed: conf, imgsz, model, etc.
 
     overrides = dict(
         conf=0.2,         # Confidence threshold
