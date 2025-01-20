@@ -67,7 +67,7 @@ torch_ver = [int(x) for x in torch.__version__.split(".")[:2]]
 
 def get_extensions():
     this_dir = os.path.dirname(os.path.abspath(__file__))
-    extensions_dir = os.path.join(this_dir, "groundingdino", "models", "ported_groundingdino", "csrc")
+    extensions_dir = os.path.join(this_dir, "groundingdino", "models", "GroundingDINO", "csrc")
 
     main_source = os.path.join(extensions_dir, "vision.cpp")
     sources = glob.glob(os.path.join(extensions_dir, "**", "*.cpp"))

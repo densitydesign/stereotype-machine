@@ -26,8 +26,8 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = current_dir
 sys.path.append(project_root)
 
-from GroundingDINO.groundingdino.util.inference import load_model, load_image
-from GroundingDINO.demo.inference_on_a_image import get_grounding_output
+from ported_groundingdino.groundingdino.util.inference import load_model, load_image
+from ported_groundingdino.demo.inference_on_a_image import get_grounding_output
 
 TEXT_THRESHOLD = 0.35
 model_folder = f"{project_root}/model_folder"
