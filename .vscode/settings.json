@@ -1,7 +1,0 @@
-{
-  "git.ignoreLimitWarning": true,
-  "python.analysis.extraPaths": [
-    "./EMIF_MASKINGDINO",
-    "./EMIF_MASKINGDINO/samHq/seginw/ported_groundingdino"
-  ]
-}
