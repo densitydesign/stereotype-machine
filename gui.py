@@ -8,7 +8,7 @@ import queue
 import sys
 import tkinter.filedialog as fd
 import os
-from image_cutting_sam2 import process_images
+from image_cutting_sam2 import process_images, initialize_sam_model
 from create_grids import create_image_grids, find_images
 from PIL import Image, ImageTk
 import queue
@@ -647,21 +647,20 @@ class ImageCuttingApp:
         Thread function to process images with the selected tags.
         """
         try:
-            self.log_message("Starting image cutting process...")
-            self.log_message(f"Input Folder: {input_folder}")
-            self.log_message(f"Output Folder: {output_folder}")
-            self.log_message(f"Selected Tags: {selected_tags}")
-            self.log_message(f"Start From Zero: {start_from_zero}")
+
+            sam_model = initialize_sam_model()
+            self.log_message(f"Here is the SAM: {sam_model}")
 
             process_images(
                 input_folder=input_folder,
                 output_folder=output_folder,
+                sam_model=sam_model,
                 start_from_zero=start_from_zero,
                 selected_tags=selected_tags,
-                log_callback=self.log_message
+                log_callback=self.log_message,
             )
 
-            self.process_queue.put("success")
+            self.process_queue.put("♣️ Queue successfully cut ♣️")
         
         except Exception as e:
             self.process_queue.put(f"error:{str(e)}")

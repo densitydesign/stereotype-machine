@@ -24,20 +24,15 @@ from scipy.ndimage import label
 # Adding paths to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = current_dir
-
-emif_maskingdino_path = os.path.join(current_dir, '..', 'EMIF_MASKINGDINO')
-efficientvit_path = os.path.join(current_dir, 'efficientvit')
-print("current_dir:\n", current_dir)
-
 sys.path.append(project_root)
-sys.path.append(efficientvit_path)
-sys.path.append(emif_maskingdino_path)
+
 from GroundingDINO.groundingdino.util.inference import load_model, load_image
 from GroundingDINO.demo.inference_on_a_image import get_grounding_output
 
 TEXT_THRESHOLD = 0.35
-model_folder = os.path.join(project_root, 'EMIF_MASKINGDINO', 'model_folder')
-sam_model = SAM(os.path.join(model_folder, "sam_l.pt"))
+model_folder = f"{project_root}/model_folder"
+
+#sam_model = SAM(f"{model_folder}/sam_l.pt")
 
 mode = "predict"
 
@@ -47,6 +42,45 @@ os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 os.environ["TOKENIZERS_PARALLELISM"] = "True"
 
 ################## CORE FUNCTIONS ##################
+
+def initialize_sam_model():
+    """
+    Initialize the SAM model, downloading it if necessary.
+    """     
+    sam_model_filename = "sam_l.pt"
+    sam_model = f"{project_root}/model_folder/{sam_model_filename}"
+    sam_download_url = "https://github.com/ultralytics/assets/releases/download/v8.2.0/sam_l.pt"
+
+    # Check if the SAM model exists, and download if missing
+    if not os.path.exists(sam_model):
+        print(f"🚨 SAM model not found at {sam_model}. Downloading...")
+        download_file(sam_model, sam_download_url)
+        print(f"✅ SAM model downloaded to {sam_model}.")
+        
+    else:
+        print(f"✅ SAM model found at {sam_model}.")
+
+    # Initialize and return the SAM model
+    return sam_model
+
+def download_file(file_path: str, download_url: str) -> None:
+    """
+    Download a file from a URL and save it to the specified file_path.
+    If the download fails, the function will print an error and exit.
+    """
+    try:
+        import requests  # Ensure requests is available
+        response = requests.get(download_url, stream=True)
+        response.raise_for_status()  # Raise an exception for any errors
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+        print(f"Downloaded: {file_path}")
+    except Exception as e:
+        print(f"🚨 Error downloading {file_path} from {download_url}: {e}")
+        sys.exit(1)
 
 def worker_init():
     """Initializer for each worker process."""
@@ -60,45 +94,29 @@ def worker_init():
 
     model_filename = "groundingdino_swinb_cogcoor.pth"
     cfg_filename   = "GroundingDINO_SwinB_cfg.py"
-    model_path = os.path.join(model_folder, model_filename)
-    cfg_path   = os.path.join(model_folder, cfg_filename)
+    model_path = f"{model_folder}/{model_filename}"
+    cfg_path   = f"{model_folder}/{cfg_filename}"
 
-    DOWNLOAD_URL = "https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha2/groundingdino_swinb_cogcoor.pth"
-    DOWNLOAD_URL_CFG = "https://raw.githubusercontent.com/IDEA-Research/GroundingDINO/main/groundingdino/config/GroundingDINO_SwinB_cfg.py"
+    DOWNLOAD_PTH = "https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha2/groundingdino_swinb_cogcoor.pth"
+    DOWNLOAD_CFG = "https://raw.githubusercontent.com/IDEA-Research/GroundingDINO/main/groundingdino/config/GroundingDINO_SwinB_cfg.py"
 
     # Download the model file if not present
     if not os.path.exists(model_path):
-        print(f"Model file not found at {model_path}. Downloading from {DOWNLOAD_URL} ...")
-        try:
-            import requests  # Ensure requests is available
-            response = requests.get(DOWNLOAD_URL, stream=True)
-            response.raise_for_status()  # Raise an exception for any errors
-            os.makedirs(model_folder, exist_ok=True)
-            with open(model_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-            print("Model download complete.")
-        except Exception as e:
-            print(f"Error downloading model: {e}")
-            sys.exit(1)
+        print(f"🚨 Model file not found at {model_path}. Downloading from {DOWNLOAD_PTH} ...")
+        download_file(model_path, DOWNLOAD_PTH)
+
+    else:
+        print("🟢 Model file found, going on:")
 
     # Download the configuration file if not present
     if not os.path.exists(cfg_path):
-        print(f"Config file not found at {cfg_path}. Downloading from {DOWNLOAD_URL_CFG} ...")
-        try:
-            response = requests.get(DOWNLOAD_URL_CFG, stream=True)
-            response.raise_for_status()
-            with open(cfg_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-            print("Config file download complete.")
-        except Exception as e:
-            print(f"Error downloading config file: {e}")
-            sys.exit(1)
+        print(f"🚨 Config file not found at {cfg_path}. Downloading from {DOWNLOAD_CFG} ...")
+        download_file(cfg_path, DOWNLOAD_CFG)
 
-    # Now load the model using the downloaded configuration file and model file.
+    else:
+        print("🟢 Model file found, going on:")
+
+
     global_model = load_model(cfg_path, model_path, device=global_device)
 
 def createBoxes(image_path: str, text_prompt: str, box_threshold: float):
@@ -121,184 +139,105 @@ def createBoxes(image_path: str, text_prompt: str, box_threshold: float):
 
     return boxes_xyxy, image_source
 
-def extractImages_old(boxes_xyxy, image_path: str, text_prompt: str, output_folder: str, bypass_filling=False):
-    global sam_model
-
-    if len(boxes_xyxy) == 0:
-        print(f"No bounding boxes provided for {image_path}. Skipping.")
-        return
-
-    # Ensure the output folder exists
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-        #print(f"Created output folder: {output_folder}")
+def extractImages(boxes_xyxy, sam_model, image_path: str, text_prompt: str, output_folder: str, bypass_filling=False):
+    # Debug: Print inputs at the beginning
+    print("=== Debug: Entering extractImages ===")
+    print(f"Image path: {image_path}")
+    time.sleep(2)
+    print(f"Text prompt: {text_prompt}")
+    time.sleep(2)
+    print(f"Output folder: {output_folder}")
+    time.sleep(2)
+    print(f"Bypass filling: {bypass_filling}")
+    time.sleep(2)
+    print(f"Received boxes shape/type: {boxes_xyxy.shape if hasattr(boxes_xyxy, 'shape') else type(boxes_xyxy)}")
+    time.sleep(2)
     
-    # Run SAM2 inference with bounding boxes as prompts
-    results_list = sam_model(image_path, bboxes=boxes_xyxy)
-
-    # Check if the result is a list and handle it accordingly
-    #print("\n=== Debug: Results from SAM2 inference ===")
-    #print(f"Results list: {results_list}")
-
-    combined_mask = None 
-
-    if isinstance(results_list, list):
-        for result_idx, result in enumerate(results_list):
-            if result.masks is not None:
-                #print(f"Found {len(result.masks.data)} masks for result {result_idx + 1} of {image_path}")
-                for mask in result.masks.data:  # Use `data` attribute for tensor access
-                    #print(f"Processing mask for result {result_idx + 1}")
-                    #print(f"Mask type: {type(mask)}, shape: {mask.shape}")
-
-                    # Convert the mask tensor to a NumPy array
-                    mask_numpy = mask.cpu().numpy()
-
-                    # Combine masks using logical OR
-                    if combined_mask is None:
-                        combined_mask = mask_numpy
-                    else:
-                        combined_mask = np.logical_or(combined_mask, mask_numpy)
-            else:
-                print(f"No masks detected for result {result_idx + 1} of {image_path}.")
-    else:
-        print("Unexpected result type. Expected a list of results.")
-
-    def fill_holes(binary_mask):
-        """
-        A more robust hole-filling method using connected component analysis.
-
-        Args:
-            binary_mask (numpy.ndarray): Input binary mask.
-
-        Returns:
-            numpy.ndarray: Binary mask with holes filled.
-        """
-        try:
-            # Ensure binary format
-            binary_mask = binary_mask.astype(bool)
-
-            # Invert the mask to identify holes
-            inverted_mask = ~binary_mask
-
-            # Label connected components in the inverted mask
-            labeled_holes, num_features = label(inverted_mask)
-
-            # Create a filled mask
-            filled_mask = binary_mask.copy()
-
-            # Iterate over connected components
-            for i in range(1, num_features + 1):
-                hole = (labeled_holes == i)
-
-                # Check if the hole touches the boundary
-                if not (hole[0, :].any() or hole[-1, :].any() or hole[:, 0].any() or hole[:, -1].any()):
-                    # If the hole does not touch the boundary, fill it
-                    filled_mask = np.logical_or(filled_mask, hole)
-
-            return filled_mask.astype(np.uint8)
-
-        except Exception as e:
-            print(f"Error in fill_holes: {str(e)}")
-            return binary_mask.astype(np.uint8)
-
-    # Save the combined mask
-    if combined_mask is not None:
-        if bypass_filling:
-            #print("Bypassing the hole-filling step as 'bypass_filling' is set to True.")
-            combined_mask_filled = combined_mask
-        else:
-            #print("Applying the hole-filling step.")
-            combined_mask_filled = fill_holes(combined_mask)
-
-        combined_mask_grayscale = (combined_mask_filled.astype(np.uint8) * 255)
-        combined_mask_image = Image.fromarray(combined_mask_grayscale)
-        combined_output_path = os.path.join(
-            output_folder,
-            f"{os.path.splitext(os.path.basename(image_path))[0]}_combined_mask_{text_prompt}.png"
-        )
-        combined_mask_image.save(combined_output_path)
-        #print(f"Saved combined mask to {combined_output_path}")
-    else:
-        print(f"No masks to combine for {image_path}.")
-
-    print("=== Debug: Exiting extractImages ===\n")
-
-def extractImages(boxes_xyxy, image_path: str, text_prompt: str, output_folder: str, bypass_filling=False):
-    #This uses the old SAM which actually works better
-
     if len(boxes_xyxy) == 0:
-        print(f"No bounding boxes provided for {image_path}. Skipping.")
+        print(f"[DEBUG] No bounding boxes provided for {image_path}. Skipping.")
         return
     
     if mode not in ["predict", "segment"]:
-        print(f"Invalid mode: {mode}. Supported modes are 'predict' and 'segment'.")
+        print(f"[DEBUG] Invalid mode: {mode}. Supported modes are 'predict' and 'segment'.")
         return
 
     # 2. Ensure the output folder exists
     if not os.path.exists(output_folder):
+        print(f"[DEBUG] Output folder '{output_folder}' does not exist. Creating folder.")
         os.makedirs(output_folder)
+    else:
+        print(f"[DEBUG] Output folder '{output_folder}' already exists.")
 
     # 3. Create a SAMPredictor with some global overrides
-
     overrides = dict(
-        conf=0.2,         # Confidence threshold
-        mode=mode,   # Ensures we do inference 
-        imgsz=1024,       # Higher resolution may yield finer masks
-        model="sam_l.pt"  # If needed, or use a different checkpoint
+        conf=0.2,               # Confidence threshold
+        mode=mode,              # Ensures we do inference 
+        imgsz=1024,             # Higher resolution may yield finer masks
+        model=f"{sam_model}",   # If needed, or use a different checkpoint
+        save_dir=f"{project_root}/Raw_predicts"
     )
+    print("[DEBUG] SAMPredictor overrides:", overrides)
     
     predictor = SAMPredictor(overrides=overrides)
+    print("[DEBUG] Created SAMPredictor.")
 
     try:
         # 4. Load the image into the predictor
+        print(f"[DEBUG] Loading image into predictor: {image_path}")
         predictor.set_image(image_path)
 
         # 5. Call predictor based on mode
         if mode == "predict":
-            print(f"Running SAM in 'predict' mode on {image_path}...")
-
+            print(f"[DEBUG] Running SAM in 'predict' mode on {image_path} with boxes:")
+            print(boxes_xyxy)
             results = predictor(
                 bboxes=boxes_xyxy,
                 points_stride=64, 
                 crop_n_layers=1, 
             )
-
         elif mode == "segment":
-            print(f"Running SAM in 'segment' mode on {image_path}...")
+            print(f"[DEBUG] Running SAM in 'segment' mode on {image_path}...")
             results = predictor()
 
-        print(f"Results type: {type(results)}")
+        print("[DEBUG] Results type:", type(results))
         if isinstance(results, list):
-            print(f"Number of result objects: {len(results)}")
+            print(f"[DEBUG] Number of result objects: {len(results)}")
             for idx, r in enumerate(results):
-                print(f"Result {idx + 1}: Masks available: {hasattr(r, 'masks')}")
+                has_masks = hasattr(r, 'masks') and (r.masks is not None)
+                print(f"[DEBUG] Result {idx + 1}: Masks available: {has_masks}")
+        else:
+            print("[DEBUG] Results is not a list. Type:", type(results))
 
     except Exception as e:
-        print(f"Error running SAM on {image_path}: {e}")
+        print(f"🚨 Error running SAM on {image_path}: {e}")
         sys.exit(1)
 
     # Helper function: merges masks from a single Results object into combined_mask
     def combine_masks_from_results(results_obj, combined_mask):
-        """Merge all mask tensors from one Results object into combined_mask."""
+        print("[DEBUG] Combining masks from one result object...")
         if results_obj.masks is not None and hasattr(results_obj.masks, "data"):
-            for mask_tensor in results_obj.masks.data:
-                mask_numpy = mask_tensor.cpu().numpy()
+            for idx, mask_tensor in enumerate(results_obj.masks.data):
+                try:
+                    mask_numpy = mask_tensor.cpu().numpy()
+                    print(f"[DEBUG] Mask {idx+1} shape: {mask_numpy.shape}")
+                except Exception as conv_ex:
+                    print(f"🚨 Error converting mask to numpy: {conv_ex}")
                 if combined_mask is None:
                     combined_mask = mask_numpy
                 else:
                     combined_mask = np.logical_or(combined_mask, mask_numpy)
         else:
-            print(f"No masks detected for {image_path}.")
+            print(f"[DEBUG] No masks detected for {image_path}.")
         return combined_mask
 
     # 6. Merge all masks into a single combined_mask
     combined_mask = None
     if isinstance(results, list):
-        # We got multiple Results objects
+        print("[DEBUG] Merging masks from multiple results objects...")
         for r in results:
             combined_mask = combine_masks_from_results(r, combined_mask)
     else:
-        # We got a single Results object
+        print("[DEBUG] Merging masks from a single result object...")
         combined_mask = combine_masks_from_results(results, combined_mask)
 
     # 7. Optional: fill holes
@@ -310,6 +249,7 @@ def extractImages(boxes_xyxy, image_path: str, text_prompt: str, output_folder: 
             binary_mask = binary_mask.astype(bool)
             inverted_mask = ~binary_mask
             labeled_holes, num_features = label(inverted_mask)
+            print(f"[DEBUG] fill_holes: {num_features} features found.")
             filled_mask = binary_mask.copy()
             for i in range(1, num_features + 1):
                 hole = (labeled_holes == i)
@@ -318,12 +258,14 @@ def extractImages(boxes_xyxy, image_path: str, text_prompt: str, output_folder: 
                     filled_mask = np.logical_or(filled_mask, hole)
             return filled_mask.astype(np.uint8)
         except Exception as e:
-            print(f"Error in fill_holes: {str(e)}")
+            print(f"🚨 Error in fill_holes: {str(e)}")
             return binary_mask.astype(np.uint8)
 
     # 8. Save the combined mask
     if combined_mask is not None:
+        print("[DEBUG] Combined mask computed. Proceeding to fill holes (if not bypassed).")
         combined_mask_filled = combined_mask if bypass_filling else fill_holes(combined_mask)
+        print("[DEBUG] Combined mask filled. Converting to grayscale.")
         combined_mask_grayscale = (combined_mask_filled.astype(np.uint8) * 255)
         combined_mask_image = Image.fromarray(combined_mask_grayscale)
         combined_output_path = os.path.join(
@@ -331,20 +273,34 @@ def extractImages(boxes_xyxy, image_path: str, text_prompt: str, output_folder: 
             f"{os.path.splitext(os.path.basename(image_path))[0]}_combined_mask_{text_prompt}.png"
         )
         combined_mask_image.save(combined_output_path)
+        print(f"[DEBUG] Saved combined mask to {combined_output_path}")
     else:
-        print(f"No masks to combine for {image_path}.")
+        print(f"[DEBUG] No masks to combine for {image_path}.")
 
     print("=== Debug: Exiting extractImages ===\n")
 
 def worker_process_image(args):
-    image_path, text_prompt, box_threshold, output_folder = args
+    image_path, text_prompt, box_threshold, output_folder, sam_model = args
     try:
-        boxes_xyxy, annotated_frame = createBoxes(image_path, text_prompt, box_threshold)
-        extractImages(boxes_xyxy, image_path, text_prompt, output_folder)
-        logging.info(f"Processed {image_path}")
+        log_msg = f"Processing {image_path} with tag '{text_prompt}' and threshold {box_threshold}"
+        if log_callback := globals().get("log_callback"):
+            log_callback(log_msg)
+        else:
+            print(log_msg)
+
+        boxes_xyxy, _ = createBoxes(image_path, text_prompt, box_threshold)
+        print("These are the boxes:", boxes_xyxy)
+        print("🟢 Forwarding to extractImages:")
+
+        extractImages(boxes_xyxy, sam_model, image_path, text_prompt, output_folder)
+
+        logging.info(f"Task for {image_path} completed successfully.")
         return True
     except Exception as e:
-        logging.error(f"Error processing {image_path}: {e}")
+        error_msg = f"🚨 Task failed for {image_path}: {e}"
+        logging.error(error_msg, exc_info=True)
+        if log_callback := globals().get("log_callback"):
+            log_callback(error_msg)
         return False
     
 def get_last_processed_image(log_file):
@@ -357,22 +313,18 @@ def get_last_processed_image(log_file):
     except FileNotFoundError:
         return None
 
-def process_images(input_folder, output_folder, start_from_zero=True, selected_tags=None, log_callback=None):
-    """
-    Processes images in the input folder based on selected tags and saves them to the output folder.
-    """
+def process_images(input_folder, output_folder, sam_model, start_from_zero=True, selected_tags=None, log_callback=None):
 
-    if not os.path.exists(model_folder):
-        raise FileNotFoundError(f"Model folder not found: {model_folder}")
-    
     if log_callback is None:
         log_callback = print
-    
+
     if selected_tags is None:
         selected_tags = {}
 
-    log_file = f'{project_root}/process_log.txt'
-    logging.basicConfig(filename=log_file, level=logging.INFO)
+    log_file = os.path.join(project_root, 'process_log.txt')
+
+    logging.basicConfig(filename=log_file, level=logging.DEBUG,
+                        format="%(asctime)s - %(levelname)s - %(message)s")
 
     # If start_from_zero is True, erase the log file
     if start_from_zero:
@@ -381,18 +333,11 @@ def process_images(input_folder, output_folder, start_from_zero=True, selected_t
     else:
         last_processed_image = get_last_processed_image(log_file)
 
-    log_callback("Starting image processing...")
-    log_callback(f"Root folder: {input_folder}")
-    log_callback(f"Output folder: {output_folder}")
-    log_callback(f"Selected tags: {selected_tags}")
-    log_callback(f"Start from zero: {start_from_zero}")
-
-    # Build the list of tasks
     tasks = []
+
     for text_prompt, box_threshold in selected_tags.items():
         for subdir, _, files in os.walk(input_folder):
             files.sort()
-            # Count how many images total
             valid_images = [f for f in files if f.lower().endswith(('.png', '.jpg', '.jpeg', '.JPG'))]
 
             for file in valid_images:
@@ -401,35 +346,17 @@ def process_images(input_folder, output_folder, start_from_zero=True, selected_t
                     continue
                 relative_path = os.path.relpath(subdir, input_folder)
                 output_subfolder = os.path.join(output_folder, relative_path)
-                tasks.append((input_image_path, text_prompt, box_threshold, output_subfolder))
+              
+                tasks.append((input_image_path, text_prompt, box_threshold, output_subfolder, sam_model))
+                #print("This is the tasklist:", tasks)
 
-    log_callback(f"Total tasks to process: {len(tasks)}")
-
-    # Process tasks with multiprocessing
+    # Process tasks with multiprocessing.
     with Pool(processes=1, initializer=worker_init) as pool:
-        results = pool.imap_unordered(worker_process_image, tasks)
+        results = pool.imap_unordered(worker_process_image, tasks) #this is the core
         with tqdm(total=len(tasks), desc="Processing Images") as pbar:
             for result in results:
-                if result:  # Log successful processing
+                if result:
                     log_callback("Task completed successfully.")
-                else:  # Log any failures
-                    log_callback("Task failed.")
+                else:
+                    log_callback("Task failed. See log for details.")
                 pbar.update(1)
-
-    # Ensure the log file exists if it didn't before
-    if last_processed_image is None:
-        open(log_file, 'a').close()
-
-if __name__ == "__main__":
-
-    if torch.cuda.is_available():
-        device = torch.device('cuda')
-    elif torch.backends.mps.is_available():
-        device = torch.device('mps')
-    else:
-        device = torch.device('cpu')
-
-    print("Your current device is:", device)
-    input_folder = f''
-    output_folder = f''
-    process_images(input_folder, output_folder, start_from_zero=True)
