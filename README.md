@@ -82,6 +82,14 @@ Then, all the configurations and model will be automatically downloaded by the s
 
 ![IMAGE GENERATION WINDOWS](ReadMe_images/1.png)
 
+So just create the queue and launch the generation. On the right window you will be updated with the last image generated.
+
+The nationality and the category will be combined to create a prompt that will look like this:
+
+```pyton
+prompt = f"{variables['prompt_addition']}, (35mm lens photography), extremely detailed, 4k, shot on dslr, photorealistic, photographic, sharp"
+```
+
 ## Image cutting
 
 ## Grid creator
