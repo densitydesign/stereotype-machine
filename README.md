@@ -90,6 +90,8 @@ The nationality and the category will be combined to create a prompt that will l
 prompt = f"{Nationality} {Category}, (35mm lens photography), extremely detailed, 4k, shot on dslr, photorealistic, photographic, sharp"
 ```
 
+Everything that's there except from the Nationality and Category is due to the need of photorealistic outputs.
+
 ## Image cutting
 
 ## Grid creator
