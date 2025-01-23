@@ -2,7 +2,7 @@
 
 import tkinter as tk
 from tkinter import ttk
-from gui import ImageGenerationApp, ImageCuttingApp, GridCreationApp, MenuBarApp
+from gui import ImageGenerationApp, ImageCuttingApp, GridCreationApp
 import sys
 import os
 from PIL import Image, ImageTk
