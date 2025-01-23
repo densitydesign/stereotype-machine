@@ -12,7 +12,6 @@ sys.path.append(ROOT_DIR)
 
 if __name__ == "__main__":
 
-    
     root = tk.Tk()
     root.title("EMIF Multi-App GUI")
 

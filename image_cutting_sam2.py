@@ -43,44 +43,63 @@ os.environ["TOKENIZERS_PARALLELISM"] = "True"
 
 ################## CORE FUNCTIONS ##################
 
-def initialize_sam_model():
+def initialize_sam_model(which_sam):
     """
     Initialize the SAM model, downloading it if necessary.
-    """     
-    sam_model_filename = "sam_l.pt"
-    sam_model = f"{project_root}/model_folder/{sam_model_filename}"
-    sam_download_url = "https://github.com/ultralytics/assets/releases/download/v8.2.0/sam_l.pt"
+    """
+    if which_sam == "SAM":
+        print("We're working with classic SAM")
+        sam_model_filename = "sam_l.pt"
+        sam_model_path = os.path.join(project_root, "model_folder", sam_model_filename)
+        sam_download_url = "https://github.com/ultralytics/assets/releases/download/v8.2.0/sam_l.pt"
 
-    # Check if the SAM model exists, and download if missing
-    if not os.path.exists(sam_model):
-        print(f"🚨 SAM model not found at {sam_model}. Downloading...")
-        download_file(sam_model, sam_download_url)
-        print(f"✅ SAM model downloaded to {sam_model}.")
-        
+        # Check if the SAM model exists, and download if missing
+        if not os.path.exists(sam_model_path):
+            print(f"🚨 SAM model not found at {sam_model_path}. Downloading...")
+            download_file(sam_model_path, sam_download_url, which_sam)
+            print(f"✅ SAM model downloaded to {sam_model_path}.")
+        else:
+            print(f"✅ SAM model found at {sam_model_path}.")
+
+        # Initialize the SAM model
+        sam_model = sam_model_path
+    
     else:
-        print(f"✅ SAM model found at {sam_model}.")
+        print("We're using SAM2")
+        sam_model_path = os.path.join(project_root, "model_folder", "sam2.1_l.pt")
 
-    # Initialize and return the SAM model
-    return sam_model
+        # Ensure the SAM2 model file exists
+        if not os.path.exists(sam_model_path):
+            raise FileNotFoundError(f"🚨 SAM2 model file not found: {sam_model_path}. Please ensure it is downloaded.")
 
-def download_file(file_path: str, download_url: str) -> None:
+        # Initialize the SAM2 model
+        sam_model = SAM(sam_model_path)
+
+    # Return the initialized SAM model
+    return sam_model  
+   
+def download_file(file_path: str, download_url: str, which_sam) -> None:
     """
     Download a file from a URL and save it to the specified file_path.
     If the download fails, the function will print an error and exit.
     """
-    try:
-        import requests  # Ensure requests is available
-        response = requests.get(download_url, stream=True)
-        response.raise_for_status()  # Raise an exception for any errors
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-        print(f"Downloaded: {file_path}")
-    except Exception as e:
-        print(f"🚨 Error downloading {file_path} from {download_url}: {e}")
-        sys.exit(1)
+    if which_sam == "SAM":
+        try:
+            import requests  # Ensure requests is available
+            response = requests.get(download_url, stream=True)
+            response.raise_for_status()  # Raise an exception for any errors
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+            print(f"Downloaded: {file_path}")
+        except Exception as e:
+            print(f"🚨 Error downloading {file_path} from {download_url}: {e}")
+            sys.exit(1)
+            
+    else:
+        return
 
 def worker_init():
     """Initializer for each worker process."""
@@ -103,7 +122,7 @@ def worker_init():
     # Download the model file if not present
     if not os.path.exists(model_path):
         print(f"🚨 Model file not found at {model_path}. Downloading from {DOWNLOAD_PTH} ...")
-        download_file(model_path, DOWNLOAD_PTH)
+        download_file(model_path, DOWNLOAD_PTH, which_sam="SAM")
 
     else:
         print("🟢 Model file found, going on:")
@@ -111,7 +130,7 @@ def worker_init():
     # Download the configuration file if not present
     if not os.path.exists(cfg_path):
         print(f"🚨 Config file not found at {cfg_path}. Downloading from {DOWNLOAD_CFG} ...")
-        download_file(cfg_path, DOWNLOAD_CFG)
+        download_file(cfg_path, DOWNLOAD_CFG, which_sam="SAM")
 
     else:
         print("🟢 Model file found, going on:")
@@ -139,7 +158,7 @@ def createBoxes(image_path: str, text_prompt: str, box_threshold: float):
 
     return boxes_xyxy, image_source
 
-def extractImages(boxes_xyxy, sam_model, image_path: str, text_prompt: str, output_folder: str, bypass_filling=False):
+def extractImages(boxes_xyxy, sam_model, which_sam, image_path: str, text_prompt: str, output_folder: str, bypass_filling=False):
     # Debug: Print inputs at the beginning
     print("=== Debug: Entering extractImages ===")
     print(f"Image path: {image_path}")
@@ -159,49 +178,59 @@ def extractImages(boxes_xyxy, sam_model, image_path: str, text_prompt: str, outp
     else:
         print(f"[DEBUG] Output folder '{output_folder}' already exists.")
 
-    # 3. Create a SAMPredictor with some global overrides
-    overrides = dict(
-        conf=0.2,               # Confidence threshold
-        mode=mode,              # Ensures we do inference 
-        imgsz=1024,             # Higher resolution may yield finer masks
-        model=f"{sam_model}",   # If needed, or use a different checkpoint
-        save_dir=f"{project_root}/Raw_predicts"
-    )
-    print("[DEBUG] SAMPredictor overrides:", overrides)
+    if which_sam == "SAM": 
+
+        print("This is the value of sam_model", sam_model)
+
+        # 3. Create a SAMPredictor with some global overrides
+        overrides = dict(
+            conf=0.2,               # Confidence threshold
+            mode=mode,              # Ensures we do inference 
+            imgsz=1024,             # Higher resolution may yield finer masks
+            model=f"{sam_model}",   # If needed, or use a different checkpoint
+            save_dir=f"{project_root}/Raw_predicts"
+        )
     
-    predictor = SAMPredictor(overrides=overrides)
-    print("[DEBUG] Created SAMPredictor.")
+        print("[DEBUG] SAMPredictor overrides:", overrides)
+        print("[DEBUG] Created SAMPredictor.")
 
-    try:
-        # 4. Load the image into the predictor
-        print(f"[DEBUG] Loading image into predictor: {image_path}")
-        predictor.set_image(image_path)
+        predictor = SAMPredictor(overrides=overrides)
 
-        # 5. Call predictor based on mode
-        if mode == "predict":
-            print(f"[DEBUG] Running SAM in 'predict' mode on {image_path} with boxes:")
-            print(boxes_xyxy)
-            results = predictor(
-                bboxes=boxes_xyxy,
-                points_stride=64, 
-                crop_n_layers=1, 
-            )
-        elif mode == "segment":
-            print(f"[DEBUG] Running SAM in 'segment' mode on {image_path}...")
-            results = predictor()
+        try:
+            # 4. Load the image into the predictor
+            print(f"[DEBUG] Loading image into predictor: {image_path}")
+            predictor.set_image(image_path)
 
-        print("[DEBUG] Results type:", type(results))
-        if isinstance(results, list):
-            print(f"[DEBUG] Number of result objects: {len(results)}")
-            for idx, r in enumerate(results):
-                has_masks = hasattr(r, 'masks') and (r.masks is not None)
-                print(f"[DEBUG] Result {idx + 1}: Masks available: {has_masks}")
-        else:
-            print("[DEBUG] Results is not a list. Type:", type(results))
+            # 5. Call predictor based on mode
+            if mode == "predict":
+                print(f"[DEBUG] Running SAM in 'predict' mode on {image_path} with boxes:")
+                print(boxes_xyxy)
+                results = predictor(
+                    bboxes=boxes_xyxy,
+                    points_stride=64, 
+                    crop_n_layers=1, 
+                )
+            elif mode == "segment":
+                print(f"[DEBUG] Running SAM in 'segment' mode on {image_path}...")
+                results = predictor()
 
-    except Exception as e:
-        print(f"🚨 Error running SAM on {image_path}: {e}")
-        sys.exit(1)
+            print("[DEBUG] Results type:", type(results))
+            if isinstance(results, list):
+                print(f"[DEBUG] Number of result objects: {len(results)}")
+                for idx, r in enumerate(results):
+                    has_masks = hasattr(r, 'masks') and (r.masks is not None)
+                    print(f"[DEBUG] Result {idx + 1}: Masks available: {has_masks}")
+            else:
+                print("[DEBUG] Results is not a list. Type:", type(results))
+
+        except Exception as e:
+            print(f"🚨 Error running SAM on {image_path}: {e}")
+            sys.exit(1)
+
+    else:
+        print(f"[DEBUG] Running SAM2 on {image_path} with bboxes: {boxes_xyxy}")
+        results = sam_model(image_path, bboxes=boxes_xyxy)
+        print(f"[DEBUG] Results from SAM2: {results}")
 
     # Helper function: merges masks from a single Results object into combined_mask
     def combine_masks_from_results(results_obj, combined_mask):
@@ -271,7 +300,7 @@ def extractImages(boxes_xyxy, sam_model, image_path: str, text_prompt: str, outp
     print("=== Debug: Exiting extractImages ===\n")
 
 def worker_process_image(args):
-    image_path, text_prompt, box_threshold, output_folder, sam_model = args
+    image_path, text_prompt, box_threshold, output_folder, sam_model, which_sam = args
     try:
         log_msg = f"Processing {image_path} with tag '{text_prompt}' and threshold {box_threshold}"
         if log_callback := globals().get("log_callback"):
@@ -283,7 +312,7 @@ def worker_process_image(args):
         print("These are the boxes:", boxes_xyxy)
         print("🟢 Forwarding to extractImages:")
 
-        extractImages(boxes_xyxy, sam_model, image_path, text_prompt, output_folder)
+        extractImages(boxes_xyxy, sam_model, which_sam, image_path, text_prompt, output_folder)
 
         logging.info(f"Task for {image_path} completed successfully.")
         return True
@@ -304,7 +333,7 @@ def get_last_processed_image(log_file):
     except FileNotFoundError:
         return None
 
-def process_images(input_folder, output_folder, sam_model, start_from_zero=True, selected_tags=None, log_callback=None, progress_callback=None):
+def process_images(input_folder, output_folder, sam_model, which_sam, start_from_zero=True, selected_tags=None, log_callback=None, progress_callback=None):
 
     if log_callback is None:
         log_callback = print
@@ -337,14 +366,16 @@ def process_images(input_folder, output_folder, sam_model, start_from_zero=True,
                 relative_path = os.path.relpath(subdir, input_folder)
                 output_subfolder = os.path.join(output_folder, relative_path)
               
-                tasks.append((input_image_path, text_prompt, box_threshold, output_subfolder, sam_model))
+                tasks.append((input_image_path, text_prompt, box_threshold, output_subfolder, sam_model, which_sam))
 
     total_tasks = len(tasks)
     log_callback(f"Total images to process: {total_tasks}")
 
     # Process tasks with multiprocessing.
-    with Pool(processes=1, initializer=worker_init) as pool:
+    with Pool(processes=4, initializer=worker_init) as pool:
+
         results = pool.imap_unordered(worker_process_image, tasks)
+
         with tqdm(total=total_tasks, desc="Processing Images") as pbar:
             for i, result in enumerate(results, start=1):
                 if result:

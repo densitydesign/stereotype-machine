@@ -521,10 +521,12 @@ class ImageGenerationApp:
 class ImageCuttingApp:
     def __init__(self, frame):
         self.frame = frame
+        self.stop_event = threading.Event()
         # Assume project_root and folder_path are defined globally
         self.input_folder = tk.StringVar(value=f"{project_root}/Upscaled_Images")
         self.output_folder = tk.StringVar(value=f"{folder_path}")
         self.start_from_zero = tk.BooleanVar(value=True)
+        self.which_sam = tk.StringVar(value="SAM")  # Default to SAM
         self.log_text = None
 
         from image_cutting.config.text_prompts import text_prompts
@@ -571,6 +573,16 @@ class ImageCuttingApp:
         self.output_folder_label.grid(row=0, column=2, sticky="we", padx=5)
         output_frame.grid_columnconfigure(2, weight=1)
 
+        # Switch Button for SAM/SAM2
+        switch_frame = tk.Frame(self.frame)
+        switch_frame.pack(pady=10, fill="x")
+        tk.Label(switch_frame, text="Select SAM Version:", font=("InstrumentSans", 12)).pack(side=tk.LEFT, padx=5)
+        sam_button = tk.Radiobutton(switch_frame, text="SAM", variable=self.which_sam, value="SAM")
+        sam2_button = tk.Radiobutton(switch_frame, text="SAM2", variable=self.which_sam, value="SAM2")
+        sam_button.pack(side=tk.LEFT, padx=5)
+        sam2_button.pack(side=tk.LEFT, padx=5)
+
+
         # Text input for tags
         tags_frame = tk.LabelFrame(self.frame, text="Select Tags for Cutting (comma-separated)")
         tags_frame.pack(pady=10, fill="x")
@@ -587,6 +599,10 @@ class ImageCuttingApp:
         # Cutting Button
         cutting_button = tk.Button(self.frame, text="Run Image Cutting", command=self.run_image_cutting)
         cutting_button.pack(pady=10)
+
+        # Stop Button
+        stop_button = tk.Button(self.frame, text="Stop", command=self.stop_image_cutting)
+        stop_button.pack(pady=5)
 
         # Log Display
         log_label = tk.Label(self.frame, text="Log:")
@@ -615,6 +631,7 @@ class ImageCuttingApp:
             self.output_folder.set(folder)
 
     def run_image_cutting(self):
+        self.stop_event.clear()
         tag_string = self.custom_tags.get()
         tags = [tag.strip() for tag in tag_string.split(",") if tag.strip()]
         selected_tags = {tag: self.text_prompts.get(tag, 0.25) for tag in tags}
@@ -622,6 +639,7 @@ class ImageCuttingApp:
         input_folder = self.input_folder.get()
         output_folder = self.output_folder.get()
         start_from_zero = self.start_from_zero.get()
+        which_sam = self.which_sam.get()
 
         if not input_folder or not output_folder:
             messagebox.showerror("Error", "Please select both input and output folders.")
@@ -636,29 +654,44 @@ class ImageCuttingApp:
             messagebox.showerror("Error", "Please select at least one tag.")
             return
 
-        self.log_message("🚀 Starting image cutting...")
+        self.log_message(f"🚀 Starting image cutting with {which_sam}...")
+
         thread = threading.Thread(
             target=self.process_images_thread,
-            args=(input_folder, output_folder, start_from_zero, selected_tags)
+            args=(input_folder, output_folder, start_from_zero, selected_tags, which_sam)
         )
         thread.start()
         self.monitor_process()
 
-    def process_images_thread(self, input_folder, output_folder, start_from_zero, selected_tags):
+    def process_images_thread(self, input_folder, output_folder, start_from_zero, selected_tags, which_sam):
         try:
-            sam_model = initialize_sam_model()
-            self.log_message(f"🤖 SAM model initialized: {sam_model}")
-            # Pass our GUI progress callback to process_images.
+            sam_model = initialize_sam_model(which_sam)
+
+            self.log_message(f"🤖 {which_sam} model initialized")
+
+            def progress_callback(current, total):
+                if self.stop_event.is_set():
+                    raise KeyboardInterrupt("Processing stopped by user.")
+                self.update_progress(current, total)
+
+
             process_images(
                 input_folder=input_folder,
                 output_folder=output_folder,
                 sam_model=sam_model,
+                which_sam=which_sam,
                 start_from_zero=start_from_zero,
                 selected_tags=selected_tags,
                 log_callback=self.log_message,
-                progress_callback=self.update_progress
+                progress_callback=progress_callback
             )
-            self.process_queue.put("success")
+
+            if not self.stop_event.is_set():
+                self.process_queue.put("success")
+
+        except KeyboardInterrupt:
+                self.log_message("⏹️ Processing stopped by user.")
+                self.process_queue.put("stopped")
         except Exception as e:
             self.process_queue.put(f"error:{str(e)}")
 
@@ -674,12 +707,20 @@ class ImageCuttingApp:
             if result == "success":
                 self.log_message("✅ Image cutting completed successfully!")
                 messagebox.showinfo("Success", "Image cutting completed successfully!")
+            elif result == "stopped":
+                self.log_message("⏹️ Image cutting process stopped by user.")
+                messagebox.showinfo("Stopped", "Image cutting process was stopped.")
             elif result.startswith("error:"):
                 error_message = result.split("error:", 1)[1]
                 self.log_message(f"❌ Error during image cutting: {error_message}")
                 messagebox.showerror("Error", f"An error occurred: {error_message}")
         except queue.Empty:
             self.frame.after(100, self.monitor_process)
+
+    def stop_image_cutting(self):
+        self.log_message("⏹️ Stopping image cutting process...")
+        self.stop_event.set()  # Signal all threads/processes to stop
+        self.process_queue.put("stopped")
 
     def log_message(self, message):
         self.log_text.config(state=tk.NORMAL)
