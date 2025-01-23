@@ -90,6 +90,11 @@ Run the script.
 
 You will now see a downloading interface with the models, controlNets and Loras being downloaded.
 
+6. **Enable API endpoint:**
+
+**NB:** The _API SERVER_ option of Drawthings app must be activated and the port must be set to  
+<img src="ReadMe_images/api_server.png" alt="API SERVER" width="300"><br><br> `127.0.0.1:7860` in order to work properly.
+
 5. **Usage:**
 
 After setting up the environment as before, you can start the application as follows:
@@ -103,11 +108,6 @@ python main.py
 ## Image generation
 
 The image generation panel works by defining a queue of operations to be fed to the [Drawthings app](https://apps.apple.com/it/app/draw-things-ai-generation/id6444050820?l=en-GB).
-
-**NB:** The _API SERVER_ option of Drawthings app must be activated and the port must be set to  
-<img src="ReadMe_images/api_server.png" alt="API SERVER" width="300"><br><br> `127.0.0.1:7860` in order to work properly.
-
-Then, all the configurations and model will be automatically downloaded by the script.
 
 ![IMAGE GENERATION WINDOWS](ReadMe_images/1.png)
 
@@ -127,8 +127,8 @@ Everything that's there except from the Nationality and Category is due to the n
 
 ## ToDoList
 
-- [ ] Test script on fresh environment
+- [x] Test script on fresh environment
 - [ ] Add photoshop file building support
-- [ ] Check input field open
+- [x] Check input field open
 - [ ] Customize UI?
-- [ ] Add check for models and force download them if necessary
+- [x] Add check for models and force download them if necessary
