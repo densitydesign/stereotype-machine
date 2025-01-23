@@ -23,7 +23,6 @@ sys.path.append(project_root)
 # Import modules from the config folder
 from api_parameters_txt2img import txt2img_data
 from api_parameters_img2img import img2img_data
-from variable_set import variable_sets
 
 # Base folders for image saving
 BASE_FOLDER = "Generated_Images"
@@ -60,7 +59,7 @@ def start_drawthings():
     except Exception as e:
         print(f"Error starting DrawThings app: {e}")
 
-def generate_images(nation, category, num_images, generated_folder=None, upscaled_folder=None, steps=30):
+def generate_images(nation, category, num_images, generated_folder=None, upscaled_folder=None, steps=None):
     """
     Generates images using the txt2img API based on specified nation, category, and number of images.
     Args:
@@ -69,8 +68,9 @@ def generate_images(nation, category, num_images, generated_folder=None, upscale
         num_images (int): The number of images to generate.
         generated_folder (str): The folder where generated images will be saved.
         upscaled_folder (str): The folder where upscaled images will be saved.
+        steps (int): The number of steps for the txt2img generation process.
     Returns:
-        None
+        str: The path of the last generated image (or None if no images were generated).
     """
 
     if not is_drawthings_running():
@@ -88,68 +88,54 @@ def generate_images(nation, category, num_images, generated_folder=None, upscale
     category_folder = os.path.join(nation_folder, category)
     os.makedirs(category_folder, exist_ok=True)
 
-    # Filter variable_sets based on user input
-    filtered_variable_sets = [
-        variables for variables in variable_sets
-        if variables["language"].lower() == nation.lower() and category.lower() in variables["prompt_addition"].lower()
-    ]
-
+    # Set the steps for image generation
     txt2img_data["steps"] = steps
 
-    # Check if any matching variable sets were found
-    if not filtered_variable_sets:
-        print(f"No matching variables found for {nation} - {category}. Using a generic prompt.")
-        filtered_variable_sets = [{"prompt_addition": f"{nation} {category}"}]
+    # Construct the prompt directly from GUI inputs
+    prompt = f"{nation} {category}, (35mm lens photography), extremely detailed, 4k, shot on dslr, photorealistic, photographic, sharp"
+    txt2img_data["prompt"] = prompt
 
     last_image_path = None  
 
-    # Iterate over the filtered variable sets
-    for variables in filtered_variable_sets:
-        
-        # Construct the prompt using the selected set of variables
-        prompt = f"{variables['prompt_addition']}, (35mm lens photography), extremely detailed, 4k, shot on dslr, photorealistic, photographic, sharp"
-        txt2img_data["prompt"] = prompt
+    # Generate the specified number of images
+    for i in tqdm(range(num_images), desc=f"Generating images for {nation} - {category}"):
+        try:
+            # Send a POST request to the txt2img API with the updated parameters
+            response = requests.post("http://127.0.0.1:7860/sdapi/v1/txt2img", json=txt2img_data)
+            
+            # Check for successful response
+            if response.status_code != 200:
+                print(f"Failed to generate image {i + 1}: {response.text}")
+                continue
 
-        # Generate the specified number of images
-        for i in tqdm(range(num_images), desc=f"Generating images for {nation} - {category}"):
-            try:
-                # Send a POST request to the txt2img API with the updated parameters
-                response = requests.post("http://127.0.0.1:7860/sdapi/v1/txt2img", json=txt2img_data)
-                
-                # Check for successful response
-                if response.status_code != 200:
-                    print(f"Failed to generate image {i + 1}: {response.text}")
-                    continue
+            # Parse the JSON response
+            r = response.json()
+            
+            # Loop through the images in the response
+            for idx_img, image_base64 in enumerate(r['images']):
+                # Decode the base64 image data
+                image_data = base64.b64decode(image_base64.split(",", 1)[-1])
+                image = Image.open(io.BytesIO(image_data))
 
-                # Parse the JSON response
-                r = response.json()
-                
-                # Loop through the images in the response
-                for idx_img, image_base64 in enumerate(r['images']):
-                    # Decode the base64 image data
-                    image_data = base64.b64decode(image_base64.split(",", 1)[-1])
-                    image = Image.open(io.BytesIO(image_data))
-
-                    # Define a unique filename for the image
+                # Define a unique filename for the image
+                image_filename = f"{nation}_{category}_{i + 1}_{idx_img + 1}.png"
+                image_path = os.path.join(category_folder, image_filename)
+                while os.path.exists(image_path):
+                    idx_img += 1  # Increment to get a unique file name
                     image_filename = f"{nation}_{category}_{i + 1}_{idx_img + 1}.png"
                     image_path = os.path.join(category_folder, image_filename)
-                    while os.path.exists(image_path):
-                        idx_img += 1  # Increment to get a unique file name
-                        image_filename = f"{nation}_{category}_{i + 1}_{idx_img + 1}.png"
-                        image_path = os.path.join(category_folder, image_filename)
 
-                    # Save the image as a PNG file
-                    image.save(image_path)
-                    print(f"Image saved at {image_path}")
+                # Save the image as a PNG file
+                image.save(image_path)
+                print(f"Image saved at {image_path}")
 
-                    # Proceed to img2img upscale
-                    last_image_path = upscale_image(image_path, nation, category, upscaled_folder)
+                # Proceed to img2img upscale
+                last_image_path = upscale_image(image_path, nation, category, upscaled_folder)
 
-            except Exception as e:
-                print(f"Error while generating images for {nation} - {category}: {e}")
-        
+        except Exception as e:
+            print(f"Error while generating images for {nation} - {category}: {e}")
+
     return last_image_path
-    
 def upscale_image(image_path, nation, category, upscaled_folder):
     """
     Upscales an image using the img2img API and saves the upscaled image.

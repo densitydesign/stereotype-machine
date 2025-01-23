@@ -14,6 +14,7 @@ from PIL import Image, ImageTk
 import queue
 import logging
 
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = current_dir
 folder_path = os.path.join(project_root, "Mask_folder")
@@ -371,7 +372,7 @@ class ImageGenerationApp:
         self.stop_flag = True
         self.animation_running = False  # Stop the animation
         self.progress_info["estimated_time_left"] = "Not yet defined"  # Reset estimated time
-        self.progress_info["time_spent"] = 0  # Reset time spent on the current image
+        self.progress_info["time_spent"] = 0 
         self.time_spent_label.config(text="Time Spent on Current Image: 0s")  # Reset label
         self.estimated_time_label.config(text="Estimated Time Left: Not yet defined")  # Reset label
         print("Image generation process stopped.")

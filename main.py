@@ -1,15 +1,28 @@
+#This is main.py
+
 import tkinter as tk
 from tkinter import ttk
-from gui import ImageGenerationApp, ImageCuttingApp, GridCreationApp
+from gui import ImageGenerationApp, ImageCuttingApp, GridCreationApp, MenuBarApp
 import sys
 import os
+from PIL import Image, ImageTk
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(ROOT_DIR)
 
 if __name__ == "__main__":
+
+    
     root = tk.Tk()
     root.title("EMIF Multi-App GUI")
+
+    icon_path = "icon.png"
+    if os.path.exists(icon_path):
+        img = Image.open(icon_path)
+        tk_icon = ImageTk.PhotoImage(img)
+        root.iconphoto(True, tk_icon)
+    else:
+        print("Window icon not found: icon.png")
 
     # Set window dimensions
     screen_width = 1200 

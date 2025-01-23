@@ -61,9 +61,38 @@ EMIF_Reloaded_UI is a user interface project designed to integrate and streamlin
    pip install -r requirements.txt
    ```
 
-## Usage
+4. **Setupping DrawThings:**
 
-After setting up the environment, you can start the application as follows:
+Open the drawthings app. The following script utilizes a mixture of Nets and models. To ensure the models are loaded to your drawthings
+
+Go to the "scripts" panel in the left menu
+
+![Script running](ReadMe_images/scripts.png)
+
+Create a new script: "Downloader".
+Paste this code:
+
+```js
+pipeline.downloadBuiltins([
+  "4x_ultrasharp_f16.ckpt",
+  "sd_xl_base_1.0_f16.ckpt",
+  "sd_xl_refiner_1.0_f16.ckpt",
+  "controlnet_tile_1.x_v1.1_f16.ckpt",
+  "juggernaut_reborn_q6p_q8p.ckpt",
+  "add_more_details__detail_enhancer___tweaker__lora_f16.ckpt",
+  "sdxl_render_v2.0_lora_f16.ckpt",
+  "tcd_sd_v1.5_lora_f16.ckpt",
+]);
+```
+
+Run the script.
+<img src="ReadMe_images/image-1.png" alt="Script running" width="300"><br><br>
+
+You will now see a downloading interface with the models, controlNets and Loras being downloaded.
+
+5. **Usage:**
+
+After setting up the environment as before, you can start the application as follows:
 
 ```bash
 python main.py
