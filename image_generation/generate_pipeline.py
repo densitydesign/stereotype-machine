@@ -23,6 +23,7 @@ sys.path.append(project_root)
 # Import modules from the config folder
 from api_parameters_txt2img import txt2img_data
 from api_parameters_img2img import img2img_data
+from api_parameters_txt2img_flux import txt2img_data_flux
 
 # Base folders for image saving
 BASE_FOLDER = "Generated_Images"
@@ -59,7 +60,7 @@ def start_drawthings():
     except Exception as e:
         print(f"Error starting DrawThings app: {e}")
 
-def generate_images(nation, category, num_images, generated_folder=None, upscaled_folder=None, steps=None):
+def generate_images(nation, category, num_images, generated_folder=None, upscaled_folder=None, steps=None, which_img_model=None):
     """
     Generates images using the txt2img API based on specified nation, category, and number of images.
     Args:
@@ -88,20 +89,27 @@ def generate_images(nation, category, num_images, generated_folder=None, upscale
     category_folder = os.path.join(nation_folder, category)
     os.makedirs(category_folder, exist_ok=True)
 
-    # Set the steps for image generation
-    txt2img_data["steps"] = steps
-
-    # Construct the prompt directly from GUI inputs
-    prompt = f"{nation} {category}, (35mm lens photography), extremely detailed, 4k, shot on dslr, photorealistic, photographic, sharp"
-    txt2img_data["prompt"] = prompt
-
     last_image_path = None  
+
+    if which_img_model == "FLUX":
+        steps = 8
+        prompt = f"{nation} {category}, photographed with a 35 mm lens with a wide field"
+        txt2img_data_flux["prompt"] = prompt
+
+    else:
+        txt2img_data["steps"] = steps
+        prompt = f"{nation} {category}, (35mm lens photography), extremely detailed, 4k, shot on dslr, photorealistic, photographic, sharp"
+        txt2img_data["prompt"] = prompt
 
     # Generate the specified number of images
     for i in tqdm(range(num_images), desc=f"Generating images for {nation} - {category}"):
         try:
             # Send a POST request to the txt2img API with the updated parameters
-            response = requests.post("http://127.0.0.1:7860/sdapi/v1/txt2img", json=txt2img_data)
+            if which_img_model == "FLUX":
+                response = requests.post("http://127.0.0.1:7860/sdapi/v1/txt2img", json=txt2img_data_flux)
+
+            else: #if not flux
+                response = requests.post("http://127.0.0.1:7860/sdapi/v1/txt2img", json=txt2img_data)
             
             # Check for successful response
             if response.status_code != 200:
@@ -136,6 +144,7 @@ def generate_images(nation, category, num_images, generated_folder=None, upscale
             print(f"Error while generating images for {nation} - {category}: {e}")
 
     return last_image_path
+
 def upscale_image(image_path, nation, category, upscaled_folder):
     """
     Upscales an image using the img2img API and saves the upscaled image.

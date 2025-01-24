@@ -191,6 +191,22 @@ class ImageGenerationApp:
         add_to_queue_button = tk.Button(selection_frame, text="Add to Queue", command=self.add_to_queue)
         add_to_queue_button.grid(row=6, column=0, columnspan=2, pady=10)
 
+        # Select model frame
+        model_frame = tk.Frame(selection_frame)
+        model_frame.grid(row=7, column=0, columnspan=2, pady=(10, 0))
+
+        model_label = tk.Label(model_frame, text="Select Image Model:")
+        model_label.pack(side="left", padx=(0, 10))
+
+        self.model_var = tk.StringVar(value="SDXL")  # Default to SDXL
+
+        sdxl_button = tk.Radiobutton(model_frame, text="SDXL", variable=self.model_var, value="SDXL")
+        sdxl_button.pack(side="left", padx=5)
+
+        flux_button = tk.Radiobutton(model_frame, text="FLUX", variable=self.model_var, value="FLUX")
+        flux_button.pack(side="left", padx=5)
+
+
 
         # Folder selection for generated images
         folder_frame = tk.Frame(self.frame)
@@ -409,6 +425,10 @@ class ImageGenerationApp:
                 else:
                     self.error_log.put(f"Dummy image not found: {dummy_image_path}")
 
+                which_img_model = self.model_var.get()
+
+                print(f"👾 We're running {which_img_model} as base model")
+
                 # Call the generate_images function and capture the path of the generated image
                 last_image_path = generate_images(
                     chosen_nation, 
@@ -416,18 +436,20 @@ class ImageGenerationApp:
                     1, 
                     self.generated_folder.get(), 
                     self.upscaled_folder.get(),
-                    steps
+                    steps,
+                    which_img_model=which_img_model
                 )
+
+                print("Obtained image:", last_image_path)
 
                 # Display the image returned by generate_images
                 if os.path.exists(last_image_path):
                     self.display_image(last_image_path)
                 else:
                     self.error_log.put(f"Image not found: {last_image_path}")
+
             except Exception as e:
                 self.error_log.put(f"Error generating or displaying image: {str(e)}")
-
-
 
             # Calculate time spent on the current image
             time_spent = time.time() - task_start_time

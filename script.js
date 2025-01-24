@@ -1,0 +1,12 @@
+pipeline.downloadBuiltins([
+  "hyper_flux.1__dev__8_step_lora_f16.ckpt",
+  "flux_1_dev_q8p.ckpt",
+  "4x_ultrasharp_f16.ckpt",
+  "sd_xl_base_1.0_f16.ckpt",
+  "sd_xl_refiner_1.0_f16.ckpt",
+  "controlnet_tile_1.x_v1.1_f16.ckpt",
+  "juggernaut_reborn_q6p_q8p.ckpt",
+  "add_more_details__detail_enhancer___tweaker__lora_f16.ckpt",
+  "sdxl_render_v2.0_lora_f16.ckpt",
+  "tcd_sd_v1.5_lora_f16.ckpt",
+]);
