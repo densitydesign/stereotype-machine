@@ -10,7 +10,7 @@ project_root = current_dir
 # Input and output directories
 root_dir = ''
 output_dir = ''
-grid_gap = 100  # Gap between images in the grid
+grid_gap = 100
 
 def find_images(root_dir,nation_pattern, category_pattern):
     """
@@ -110,6 +110,3 @@ def create_image_grids(root_dir, category_pattern, grid_size=(6, 6), output_dir=
                     print(f"Error saving grid image {grid_output_path}: {e}")
 
     print("\n=== Debug: Completed creating image grids ===")
-
-if __name__ == "__main__":
-    create_image_grids(root_dir)

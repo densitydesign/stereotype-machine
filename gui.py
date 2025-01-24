@@ -770,6 +770,20 @@ class GridCreationApp:
         default_input = f"{project_root}/Upscaled_Images"
         self.input_var.set(default_input)
 
+        new_input_label = tk.Label(self.frame, text="Mask folder:", font=("InstrumentSans", 12))
+        new_input_label.pack(pady=5)
+        new_input_frame = tk.Frame(self.frame)
+        new_input_frame.pack(pady=5)
+
+        self.new_input_var = tk.StringVar()
+        default_mask_folder = f"{project_root}/Mask_folder"
+        self.new_input_var.set(default_mask_folder)
+        self.new_input_entry = tk.Entry(new_input_frame, textvariable=self.new_input_var, width=40)
+        self.new_input_entry.pack(side="left", padx=5)
+
+        new_input_browse = tk.Button(new_input_frame, text="Browse", command=self.browse_new_input_folder)
+        new_input_browse.pack(side="left", padx=5)
+
         def adjust_entry_width(*args):
             # Compute a new width, here we use max(40, number of characters + 2)
             new_width = max(40, len(self.input_var.get()) + 2)
@@ -846,6 +860,12 @@ class GridCreationApp:
             self.input_entry.delete(0, tk.END)
             self.input_entry.insert(0, folder)
 
+    def browse_new_input_folder(self):
+                folder = filedialog.askdirectory()
+                if folder:
+                    self.new_input_entry.delete(0, tk.END)
+                    self.new_input_entry.insert(0, folder)                
+
     def browse_output_folder(self):
         folder = filedialog.askdirectory()
         if folder:
@@ -855,7 +875,7 @@ class GridCreationApp:
     def resize_entry_box(self, event):
         """Dynamically resize the nation keywords entry box based on its content."""
         content_length = len(self.pattern_entry.get())
-        new_width = max(10, min(100, content_length))  # Keep the width between 10 and 100
+        new_width = max(10, min(100, content_length))
         self.pattern_entry.config(width=new_width)
 
     def update_progress(self, progress, total):
@@ -866,6 +886,7 @@ class GridCreationApp:
     def run_grid_maker(self):
         # Get the input and output directories
         root_dir = self.input_entry.get()
+        new_input_dir = self.new_input_entry.get()
         output_dir = self.output_entry.get()
 
         # Get the user-defined nation and category patterns
@@ -885,19 +906,30 @@ class GridCreationApp:
             messagebox.showerror("Error", "Please enter valid integers for rows and columns.")
             return
 
-        # Use the create_image_grids function with progress tracking
         try:
-            total_steps = 30
-            for i in range(total_steps):  # Replace with actual steps in your logic
-                self.update_progress(i + 1, total_steps)
+            # Process for root_dir
+            root_output_dir = os.path.join(output_dir, "Images")
+            os.makedirs(root_output_dir, exist_ok=True)
             create_image_grids(
                 root_dir,
                 grid_size=grid_size,
-                output_dir=output_dir,
+                output_dir=root_output_dir,
                 nation_pattern=nation_pattern,
                 category_pattern=category_pattern,
             )
-            self.update_progress(total_steps, total_steps)  # Ensure progress is complete
+
+            # Process for new_input_dir
+            mask_output_dir = os.path.join(output_dir, "Masks")
+            os.makedirs(mask_output_dir, exist_ok=True)
+            create_image_grids(
+                new_input_dir,
+                grid_size=grid_size,
+                output_dir=mask_output_dir,
+                nation_pattern=nation_pattern,
+                category_pattern=category_pattern,
+            )
+
+            self.update_progress(100, 100)  # Ensure progress is complete
             messagebox.showinfo("Info", "Grid creation completed successfully!")
         except Exception as e:
             messagebox.showerror("Error", f"An error occurred during grid creation: {e}")
