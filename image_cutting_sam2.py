@@ -312,9 +312,6 @@ def extractImages(boxes_xyxy, sam_model, which_sam, image_path: str, text_prompt
     else:
         print(f"[DEBUG] No masks to combine for {image_path}.")
 
-    # Clean up the temporary compressed image
-    os.remove(image_path)
-
     # After processing, clear large variables
     del boxes_xyxy
     del sam_model  # If you are done with the model in this context
