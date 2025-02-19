@@ -5,21 +5,17 @@ from ultralytics import SAM
 from ultralytics.models.sam import Predictor as SAMPredictor
 
 import os
-import cv2
-import time
 import numpy as np
 from tqdm import tqdm
-import warnings
-from PIL import UnidentifiedImageError
 import sys
 from typing import List
 import logging
 from PIL import Image
 from multiprocessing import Pool
-from PIL import ImageDraw
 from torchvision.ops import box_convert
 
 from scipy.ndimage import label
+from threading import Event  # Import Event
 
 # Adding paths to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -70,13 +66,34 @@ def initialize_sam_model(which_sam):
 
         # Ensure the SAM2 model file exists
         if not os.path.exists(sam_model_path):
-            raise FileNotFoundError(f"🚨 SAM2 model file not found: {sam_model_path}. Please ensure it is downloaded.")
+            print(f"🚨 SAM2 model file not found: {sam_model_path}. Downloading...")
+            sam_download_url = "https://github.com/ultralytics/assets/releases/download/v8.3.0/sam2.1_l.pt"
+            download_file_with_progress(sam_model_path, sam_download_url)
 
         # Initialize the SAM2 model
         sam_model = SAM(sam_model_path)
 
     # Return the initialized SAM model
     return sam_model  
+
+def download_file_with_progress(file_path: str, download_url: str) -> None:
+    """
+    Download a file from a URL and save it to the specified file_path with a progress bar.
+    """
+    try:
+        import requests  # Ensure requests is available
+        response = requests.get(download_url, stream=True)
+        response.raise_for_status()  # Raise an exception for any errors
+        total_size = int(response.headers.get('content-length', 0))
+        with open(file_path, "wb") as f:
+            for data in response.iter_content(chunk_size=8192):
+                f.write(data)
+                done = f.tell()
+                print(f"\rDownloading {file_path}: {done / total_size:.2%}", end="")
+        print(f"\nDownloaded: {file_path}")
+    except Exception as e:
+        print(f"🚨 Error downloading {file_path} from {download_url}: {e}")
+        sys.exit(1)
    
 def download_file(file_path: str, download_url: str, which_sam) -> None:
     """
@@ -159,6 +176,7 @@ def createBoxes(image_path: str, text_prompt: str, box_threshold: float):
     return boxes_xyxy, image_source
 
 def extractImages(boxes_xyxy, sam_model, which_sam, image_path: str, text_prompt: str, output_folder: str, bypass_filling=False):
+
     # Debug: Print inputs at the beginning
     print("=== Debug: Entering extractImages ===")
     print(f"Image path: {image_path}")
@@ -166,7 +184,7 @@ def extractImages(boxes_xyxy, sam_model, which_sam, image_path: str, text_prompt
     print(f"Output folder: {output_folder}")
     print(f"Bypass filling: {bypass_filling}")
     print(f"Received boxes shape/type: {boxes_xyxy.shape if hasattr(boxes_xyxy, 'shape') else type(boxes_xyxy)}")
-    
+
     if len(boxes_xyxy) == 0:
         print(f"[DEBUG] No bounding boxes provided for {image_path}. Skipping.")
         return
@@ -179,14 +197,12 @@ def extractImages(boxes_xyxy, sam_model, which_sam, image_path: str, text_prompt
         print(f"[DEBUG] Output folder '{output_folder}' already exists.")
 
     if which_sam == "SAM": 
-
         print("This is the value of sam_model", sam_model)
 
         # 3. Create a SAMPredictor with some global overrides
         overrides = dict(
             conf=0.2,               # Confidence threshold
             mode=mode,              # Ensures we do inference 
-            imgsz=1024,             # Higher resolution may yield finer masks
             model=f"{sam_model}",   # If needed, or use a different checkpoint
             save_dir=f"{project_root}/Raw_predicts"
         )
@@ -201,34 +217,33 @@ def extractImages(boxes_xyxy, sam_model, which_sam, image_path: str, text_prompt
             print(f"[DEBUG] Loading image into predictor: {image_path}")
             predictor.set_image(image_path)
 
-            # 5. Call predictor based on mode
-            if mode == "predict":
-                print(f"[DEBUG] Running SAM in 'predict' mode on {image_path} with boxes:")
-                print(boxes_xyxy)
-                results = predictor(
-                    bboxes=boxes_xyxy,
-                    points_stride=64, 
-                    crop_n_layers=1, 
-                )
-            elif mode == "segment":
-                print(f"[DEBUG] Running SAM in 'segment' mode on {image_path}...")
-                results = predictor()
-
-            print("[DEBUG] Results type:", type(results))
-            if isinstance(results, list):
-                print(f"[DEBUG] Number of result objects: {len(results)}")
-                for idx, r in enumerate(results):
-                    has_masks = hasattr(r, 'masks') and (r.masks is not None)
-                    print(f"[DEBUG] Result {idx + 1}: Masks available: {has_masks}")
-            else:
-                print("[DEBUG] Results is not a list. Type:", type(results))
-
         except Exception as e:
-            print(f"🚨 Error running SAM on {image_path}: {e}")
-            sys.exit(1)
+            print(f"🚨 Error Loading image: {e}")
+            raise
+
+        # 4. Call predictor based on mode
+        if mode == "predict":
+            print(f"[DEBUG] Running SAM in 'predict' mode on {image_path} with boxes:")
+            print(boxes_xyxy)
+            results = predictor(
+                bboxes=boxes_xyxy,
+                points_stride=64, 
+                crop_n_layers=1, 
+            )
+        elif mode == "segment":
+            print(f"[DEBUG] Running SAM in 'segment' mode on {image_path}...")
+            results = predictor()
+
+        print("[DEBUG] Results type:", type(results))
+        if isinstance(results, list):
+            print(f"[DEBUG] Number of result objects: {len(results)}")
+            for idx, r in enumerate(results):
+                has_masks = hasattr(r, 'masks') and (r.masks is not None)
+                print(f"[DEBUG] Result {idx + 1}: Masks available: {has_masks}")
+        else:
+            print("[DEBUG] Results is not a list. Type:", type(results))
 
     else:
-        print(f"[DEBUG] Running SAM2 on {image_path} with bboxes: {boxes_xyxy}")
         results = sam_model(image_path, bboxes=boxes_xyxy)
         print(f"[DEBUG] Results from SAM2: {results}")
 
@@ -297,11 +312,20 @@ def extractImages(boxes_xyxy, sam_model, which_sam, image_path: str, text_prompt
     else:
         print(f"[DEBUG] No masks to combine for {image_path}.")
 
+    # Clean up the temporary compressed image
+    os.remove(image_path)
+
+    # After processing, clear large variables
+    del boxes_xyxy
+    del sam_model  # If you are done with the model in this context
+
     print("=== Debug: Exiting extractImages ===\n")
 
 def worker_process_image(args):
-    image_path, text_prompt, box_threshold, output_folder, sam_model, which_sam = args
+    image_path, text_prompt, box_threshold, output_folder, which_sam = args
     try:
+        sam_model = initialize_sam_model(which_sam)
+
         log_msg = f"Processing {image_path} with tag '{text_prompt}' and threshold {box_threshold}"
         if log_callback := globals().get("log_callback"):
             log_callback(log_msg)
@@ -313,9 +337,17 @@ def worker_process_image(args):
         print("🟢 Forwarding to extractImages:")
 
         extractImages(boxes_xyxy, sam_model, which_sam, image_path, text_prompt, output_folder)
-
-        logging.info(f"Task for {image_path} completed successfully.")
-        return True
+        
+        # Check if extractImages worked
+        if os.path.exists(os.path.join(output_folder, f"{os.path.splitext(os.path.basename(image_path))[0]}_combined_mask_{text_prompt}.png")):
+            print("🟢 ExtractImages completed successfully and output file exists.")
+            logging.info(f"Task for {image_path} completed successfully.")
+            return True
+        else:
+            print("🚨 ExtractImages did not produce the expected output file.")
+            logging.error(f"Task for {image_path} failed: Output file not found.")
+            return False
+    
     except Exception as e:
         error_msg = f"🚨 Task failed for {image_path}: {e}"
         logging.error(error_msg, exc_info=True)
@@ -333,17 +365,64 @@ def get_last_processed_image(log_file):
     except FileNotFoundError:
         return None
 
+# Create a custom handler that logs to both file and console
+class DualHandler(logging.Handler):
+    def __init__(self, ui_callback=None):
+        super().__init__()
+        self.ui_callback = ui_callback
+        self.console_handler = logging.StreamHandler()
+        self.file_handler = None
+
+    def set_file_handler(self, log_file):
+        self.file_handler = logging.FileHandler(log_file)
+
+    def emit(self, record):
+        # Log to console
+        self.console_handler.emit(record)
+        
+        # Log to file if handler exists
+        if self.file_handler:
+            self.file_handler.emit(record)
+            
+        # Log to UI if callback exists
+        if self.ui_callback:
+            try:
+                msg = self.format(record)
+                self.ui_callback(msg)
+            except Exception:
+                pass
+
+def setup_logging(log_file, ui_callback=None):
+    # Create the dual handler
+    handler = DualHandler(ui_callback)
+    handler.set_file_handler(log_file)
+    
+    # Set format for the logs
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    
+    # Configure root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    
+    # Remove existing handlers and add our dual handler
+    for h in root_logger.handlers[:]:
+        root_logger.removeHandler(h)
+    root_logger.addHandler(handler)
+
 def process_images(input_folder, output_folder, sam_model, which_sam, start_from_zero=True, selected_tags=None, log_callback=None, progress_callback=None):
-
-    if log_callback is None:
-        log_callback = print
-
+    # Setup logging at the start of processing
+    log_file = os.path.join(project_root, 'process_log.txt')
+    setup_logging(log_file, log_callback)
+    
+    logger = logging.getLogger(__name__)
+    
     if selected_tags is None:
         selected_tags = {}
 
-    log_file = os.path.join(project_root, 'process_log.txt')
-    logging.basicConfig(filename=log_file, level=logging.DEBUG,
-                        format="%(asctime)s - %(levelname)s - %(message)s")
+    # Use logger instead of print/log_callback
+    num_processes = 2 if which_sam == "SAM" else 4
+    logger.info(f"Using {num_processes} worker processes for {which_sam}")
 
     # If start_from_zero is True, erase the log file
     if start_from_zero:
@@ -353,7 +432,6 @@ def process_images(input_folder, output_folder, sam_model, which_sam, start_from
         last_processed_image = get_last_processed_image(log_file)
 
     tasks = []
-
     for text_prompt, box_threshold in selected_tags.items():
         for subdir, _, files in os.walk(input_folder):
             files.sort()
@@ -366,25 +444,37 @@ def process_images(input_folder, output_folder, sam_model, which_sam, start_from
                 relative_path = os.path.relpath(subdir, input_folder)
                 output_subfolder = os.path.join(output_folder, relative_path)
               
-                tasks.append((input_image_path, text_prompt, box_threshold, output_subfolder, sam_model, which_sam))
+                tasks.append((input_image_path, text_prompt, box_threshold, output_subfolder, which_sam))
 
     total_tasks = len(tasks)
-    log_callback(f"Total images to process: {total_tasks}")
+    logger.info(f"Total images to process: {total_tasks}")
 
-    # Process tasks with multiprocessing.
-    with Pool(processes=4, initializer=worker_init) as pool:
+    # Process tasks with multiprocessing
+    with Pool(processes=num_processes, initializer=worker_init) as pool:
+        try:
+            results = pool.imap_unordered(worker_process_image, tasks)
 
-        results = pool.imap_unordered(worker_process_image, tasks)
+            with tqdm(total=total_tasks, desc="Processing Images") as pbar:
+                for i, result in enumerate(results, start=1):
+                    if result:
+                        logger.info("✅ Task completed successfully.")
+                    else:
+                        logger.error("❌ Task failed. Stopping process.")
+                        pool.terminate()  # Terminate all worker processes
+                        return False  # Exit the function early
+                    pbar.update(1)
+                    if progress_callback is not None:
+                        progress_callback(i, total_tasks)
 
-        with tqdm(total=total_tasks, desc="Processing Images") as pbar:
-            for i, result in enumerate(results, start=1):
-                if result:
-                    log_callback("✅ Task completed successfully.")
-                else:
-                    log_callback("❌ Task failed. See log for details.")
-                pbar.update(1)
-                if progress_callback is not None:
-                    progress_callback(i, total_tasks)
+        except Exception as e:
+            logger.error(f"Error during processing: {e}")
+            pool.terminate()  # Terminate all worker processes
+            return False
+        finally:
+            pool.close()
+            pool.join()
 
     if last_processed_image is None:
         open(log_file, 'a').close()
+    
+    return True  # Return True if all tasks completed successfully

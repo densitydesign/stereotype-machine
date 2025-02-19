@@ -3,12 +3,12 @@ from tkinter import ttk, messagebox, filedialog
 import threading
 import time
 from image_generation.generate_pipeline import generate_images, upscale_image
-from image_generation.variable_set import variable_sets
+#from image_generation.variable_set import variable_sets
 import queue
 import sys
 import tkinter.filedialog as fd
 import os
-from image_cutting_sam2 import process_images, initialize_sam_model
+from image_cutting_sam2 import process_images
 from create_grids import create_image_grids, find_images
 from PIL import Image, ImageTk
 import queue
@@ -551,8 +551,10 @@ class ImageCuttingApp:
         self.which_sam = tk.StringVar(value="SAM")  # Default to SAM
         self.log_text = None
 
-        from image_cutting.config.text_prompts import text_prompts
-        self.text_prompts = text_prompts
+        self.text_prompts = {
+            "Person": 0.25,
+        }
+
         self.selected_tags = {tag: tk.BooleanVar(value=True) for tag in self.text_prompts.keys()}
 
         self.process_queue = queue.Queue()
@@ -606,7 +608,7 @@ class ImageCuttingApp:
 
 
         # Text input for tags
-        tags_frame = tk.LabelFrame(self.frame, text="Select Tags for Cutting (comma-separated)")
+        tags_frame = tk.LabelFrame(self.frame, text="Write a comma separated list of what you want to cut in this format: Tag1:Weight1, Tag2:Weight2, ...")
         tags_frame.pack(pady=10, fill="x")
         self.custom_tags = tk.StringVar()
         default_tags = ", ".join(self.text_prompts.keys())
@@ -656,7 +658,7 @@ class ImageCuttingApp:
         self.stop_event.clear()
         tag_string = self.custom_tags.get()
         tags = [tag.strip() for tag in tag_string.split(",") if tag.strip()]
-        selected_tags = {tag: self.text_prompts.get(tag, 0.25) for tag in tags}
+        selected_tags = {tag: self.text_prompts.get(tag, 0.25) for tag in tags} #Dictionary creation
 
         input_folder = self.input_folder.get()
         output_folder = self.output_folder.get()
@@ -687,10 +689,6 @@ class ImageCuttingApp:
 
     def process_images_thread(self, input_folder, output_folder, start_from_zero, selected_tags, which_sam):
         try:
-            sam_model = initialize_sam_model(which_sam)
-
-            self.log_message(f"🤖 {which_sam} model initialized")
-
             def progress_callback(current, total):
                 if self.stop_event.is_set():
                     raise KeyboardInterrupt("Processing stopped by user.")
@@ -700,7 +698,7 @@ class ImageCuttingApp:
             process_images(
                 input_folder=input_folder,
                 output_folder=output_folder,
-                sam_model=sam_model,
+                sam_model=which_sam,
                 which_sam=which_sam,
                 start_from_zero=start_from_zero,
                 selected_tags=selected_tags,

@@ -23,7 +23,7 @@ txt2img_data = {
     "hires_fix": True,
     "hires_fix_width": 960,
     "hires_fix_height": 960,
-    "hires_fix_strength": 0.3500000, #HIRES %
+    "hires_fix_strength": 0.3500000,
 
     "width": 1024,
     "height":1024,
@@ -62,7 +62,7 @@ txt2img_data = {
     "sampler": "DPM++ 2M Karras",
     "model": "sd_xl_base_1.0_f16.ckpt",
     "refiner_model": "sd_xl_refiner_1.0_f16.ckpt",
-    "refiner_start": 0.70, #refiner%
+    "refiner_start": 0.70,
 
     "aesthetic_score": 6,
     "negative_aesthetic_score": 2.5,

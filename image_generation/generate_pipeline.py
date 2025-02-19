@@ -98,7 +98,9 @@ def generate_images(nation, category, num_images, generated_folder=None, upscale
 
     else:
         txt2img_data["steps"] = steps
-        prompt = f"{nation} {category}, (35mm lens photography), extremely detailed, 4k, shot on dslr, photorealistic, photographic, sharp"
+        
+        prompt = f"({nation})1.5 {category}, (35mm lens photography), extremely detailed, 4k, shot on dslr, photorealistic, photographic, sharp"
+
         txt2img_data["prompt"] = prompt
 
     # Generate the specified number of images
