@@ -9,7 +9,7 @@ import sys
 import tkinter.filedialog as fd
 import os
 from image_cutting_sam2 import process_images
-from create_grids import create_image_grids, find_images
+from create_grids import create_image_grids_from_structure, find_leaf_folders
 from PIL import Image, ImageTk
 import queue
 import logging
@@ -763,25 +763,17 @@ class GridCreationApp:
             self.frame,
             text=(
                 "\n This section allows you to create a grid layout for your images."
-                "\n The script automatically sorts the images based on their nation and category."
+                "\n The script automatically creates grids based on the folder structure."
+                "\n For each leaf folder in the directory tree, a grid will be created."
                 "\n The output will be a series of grids, in .PNG format, to be included in PSD post-processing."
-                "\n Specify keywords for nations and categories (comma-separated)."
             ),
             wraplength=400,
             justify="left",
         )
         description_label.pack(pady=10)
 
-        disclaimer_label = tk.Label(
-            self.frame,
-            text="Note: Please enter a comma-separated list for Nation Keywords and Category Keywords.",
-            font=("InstrumentSans", 10, "italic"),
-            fg="gray",
-        )
-        disclaimer_label.pack(pady=5)
-
         # Input Folder Selection
-        input_label = tk.Label(self.frame, text="Input Folder:", font=("InstrumentSans", 12))
+        input_label = tk.Label(self.frame, text="Images Folder:", font=("InstrumentSans", 12))
         input_label.pack(pady=5)
         input_frame = tk.Frame(self.frame)
         input_frame.pack(pady=5)
@@ -790,57 +782,42 @@ class GridCreationApp:
         default_input = f"{project_root}/Upscaled_Images"
         self.input_var.set(default_input)
 
-        new_input_label = tk.Label(self.frame, text="Mask folder:", font=("InstrumentSans", 12))
-        new_input_label.pack(pady=5)
-        new_input_frame = tk.Frame(self.frame)
-        new_input_frame.pack(pady=5)
-
-        self.new_input_var = tk.StringVar()
-        default_mask_folder = f"{project_root}/Mask_folder"
-        self.new_input_var.set(default_mask_folder)
-        self.new_input_entry = tk.Entry(new_input_frame, textvariable=self.new_input_var, width=40)
-        self.new_input_entry.pack(side="left", padx=5)
-
-        new_input_browse = tk.Button(new_input_frame, text="Browse", command=self.browse_new_input_folder)
-        new_input_browse.pack(side="left", padx=5)
-
-        def adjust_entry_width(*args):
-            # Compute a new width, here we use max(40, number of characters + 2)
-            new_width = max(40, len(self.input_var.get()) + 2)
-            self.input_entry.config(width=new_width)
-
-        self.input_var.trace_add("write", adjust_entry_width)
         self.input_entry = tk.Entry(input_frame, textvariable=self.input_var, width=40)
         self.input_entry.pack(side="left", padx=5)
 
         input_browse = tk.Button(input_frame, text="Browse", command=self.browse_input_folder)
         input_browse.pack(side="left", padx=5)
 
+        # Mask Folder Selection
+        mask_label = tk.Label(self.frame, text="Mask Folder:", font=("InstrumentSans", 12))
+        mask_label.pack(pady=5)
+        mask_frame = tk.Frame(self.frame)
+        mask_frame.pack(pady=5)
+
+        self.mask_var = tk.StringVar()
+        default_mask_folder = f"{project_root}/Mask_folder"
+        self.mask_var.set(default_mask_folder)
+        self.mask_entry = tk.Entry(mask_frame, textvariable=self.mask_var, width=40)
+        self.mask_entry.pack(side="left", padx=5)
+
+        mask_browse = tk.Button(mask_frame, text="Browse", command=self.browse_mask_folder)
+        mask_browse.pack(side="left", padx=5)
+
         # Output Folder Selection
         output_label = tk.Label(self.frame, text="Output Folder:", font=("InstrumentSans", 12))
         output_label.pack(pady=5)
         output_frame = tk.Frame(self.frame)
         output_frame.pack(pady=5)
-        self.output_entry = tk.Entry(output_frame, width=40)
-        self.output_entry.insert(0, f"{project_root}/DB_GRIDS")  # Default path
+        
+        self.output_var = tk.StringVar()
+        default_output = f"{project_root}/Final_Grids"
+        self.output_var.set(default_output)
+        
+        self.output_entry = tk.Entry(output_frame, textvariable=self.output_var, width=40)
         self.output_entry.pack(side="left", padx=5)
+        
         output_browse = tk.Button(output_frame, text="Browse", command=self.browse_output_folder)
         output_browse.pack(side="left", padx=5)
-
-        # Nation Pattern Input
-        pattern_label = tk.Label(self.frame, text="Nation Keywords (comma-separated):", font=("InstrumentSans", 12))
-        pattern_label.pack(pady=5)
-        self.pattern_entry = tk.Entry(self.frame, width=50)
-        self.pattern_entry.insert(0, "Italian, Greek")
-        self.pattern_entry.pack(pady=5)
-        self.pattern_entry.bind("<KeyRelease>", self.resize_entry_box)
-
-        # Category Pattern Input
-        category_label = tk.Label(self.frame, text="Category Keywords (comma-separated):", font=("InstrumentSans", 12))
-        category_label.pack(pady=5)
-        self.category_entry = tk.Entry(self.frame, width=50)
-        self.category_entry.insert(0, "family,working")
-        self.category_entry.pack(pady=5)
 
         # Grid Size Inputs
         grid_size_label = tk.Label(self.frame, text="Grid Size (Rows x Columns):", font=("InstrumentSans", 12))
@@ -870,6 +847,10 @@ class GridCreationApp:
         self.progress_bar = ttk.Progressbar(self.frame, orient="horizontal", length=400, mode="determinate")
         self.progress_bar.pack(pady=5)
 
+        # Status Label
+        self.status_label = tk.Label(self.frame, text="Ready", font=("InstrumentSans", 10))
+        self.status_label.pack(pady=5)
+
         # Run Grid Maker Button
         grid_button = tk.Button(self.frame, text="Run Grid Maker", command=self.run_grid_maker)
         grid_button.pack(pady=10)
@@ -877,45 +858,33 @@ class GridCreationApp:
     def browse_input_folder(self):
         folder = filedialog.askdirectory()
         if folder:
-            self.input_entry.delete(0, tk.END)
-            self.input_entry.insert(0, folder)
+            self.input_var.set(folder)
 
-    def browse_new_input_folder(self):
-                folder = filedialog.askdirectory()
-                if folder:
-                    self.new_input_entry.delete(0, tk.END)
-                    self.new_input_entry.insert(0, folder)                
+    def browse_mask_folder(self):
+        folder = filedialog.askdirectory()
+        if folder:
+            self.mask_var.set(folder)
 
     def browse_output_folder(self):
         folder = filedialog.askdirectory()
         if folder:
-            self.output_entry.delete(0, tk.END)
-            self.output_entry.insert(0, folder)
-
-    def resize_entry_box(self, event):
-        """Dynamically resize the nation keywords entry box based on its content."""
-        content_length = len(self.pattern_entry.get())
-        new_width = max(10, min(100, content_length))
-        self.pattern_entry.config(width=new_width)
+            self.output_var.set(folder)
 
     def update_progress(self, progress, total):
         """Update the progress bar."""
         self.progress_bar["value"] = (progress / total) * 100
         self.frame.update_idletasks()
 
+    def update_status(self, message):
+        """Update the status label."""
+        self.status_label.config(text=message)
+        self.frame.update_idletasks()
+
     def run_grid_maker(self):
         # Get the input and output directories
-        root_dir = self.input_entry.get()
-        new_input_dir = self.new_input_entry.get()
-        output_dir = self.output_entry.get()
-
-        # Get the user-defined nation and category patterns
-        nation_keywords = self.pattern_entry.get()
-        category_keywords = self.category_entry.get()
-
-        # Convert comma-separated keywords into regex patterns
-        nation_pattern = "|".join([kw.strip() for kw in nation_keywords.split(",")])
-        category_pattern = "|".join([kw.strip() for kw in category_keywords.split(",")])
+        images_dir = self.input_var.get()
+        mask_dir = self.mask_var.get()
+        output_dir = self.output_var.get()
 
         # Get grid size from user input
         try:
@@ -926,33 +895,39 @@ class GridCreationApp:
             messagebox.showerror("Error", "Please enter valid integers for rows and columns.")
             return
 
-        try:
-            # Process for root_dir
-            root_output_dir = os.path.join(output_dir, "Images")
-            os.makedirs(root_output_dir, exist_ok=True)
-            create_image_grids(
-                root_dir,
-                grid_size=grid_size,
-                output_dir=root_output_dir,
-                nation_pattern=nation_pattern,
-                category_pattern=category_pattern,
-            )
+        # Create a thread to run the grid creation process
+        def process_thread():
+            try:
+                self.update_status("Processing images folder...")
+                # Process for images_dir
+                images_output_dir = os.path.join(output_dir, "Images")
+                os.makedirs(images_output_dir, exist_ok=True)
+                from create_grids import create_image_grids_from_structure
+                create_image_grids_from_structure(
+                    images_dir,
+                    grid_size=grid_size,
+                    output_dir=images_output_dir
+                )
 
-            # Process for new_input_dir
-            mask_output_dir = os.path.join(output_dir, "Masks")
-            os.makedirs(mask_output_dir, exist_ok=True)
-            create_image_grids(
-                new_input_dir,
-                grid_size=grid_size,
-                output_dir=mask_output_dir,
-                nation_pattern=nation_pattern,
-                category_pattern=category_pattern,
-            )
+                self.update_status("Processing masks folder...")
+                # Process for mask_dir
+                masks_output_dir = os.path.join(output_dir, "Masks")
+                os.makedirs(masks_output_dir, exist_ok=True)
+                create_image_grids_from_structure(
+                    mask_dir,
+                    grid_size=grid_size,
+                    output_dir=masks_output_dir
+                )
 
-            self.update_progress(100, 100)  # Ensure progress is complete
-            messagebox.showinfo("Info", "Grid creation completed successfully!")
-        except Exception as e:
-            messagebox.showerror("Error", f"An error occurred during grid creation: {e}")
+                self.update_progress(100, 100)  # Ensure progress is complete
+                self.update_status("Grid creation completed successfully!")
+                messagebox.showinfo("Info", "Grid creation completed successfully!")
+            except Exception as e:
+                self.update_status(f"Error: {str(e)}")
+                messagebox.showerror("Error", f"An error occurred during grid creation: {e}")
+
+        # Start the processing thread
+        threading.Thread(target=process_thread).start()
 
 # To initialize the app in main.py
 if __name__ == "__main__":

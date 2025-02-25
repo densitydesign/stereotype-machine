@@ -195,6 +195,14 @@ def extractImages(boxes_xyxy, sam_model, which_sam, image_path: str, text_prompt
         os.makedirs(output_folder)
     else:
         print(f"[DEBUG] Output folder '{output_folder}' already exists.")
+    
+    # Create a subfolder for this specific text_prompt
+    prompt_folder = os.path.join(output_folder, text_prompt)
+    if not os.path.exists(prompt_folder):
+        print(f"[DEBUG] Creating subfolder for prompt '{text_prompt}'")
+        os.makedirs(prompt_folder)
+    else:
+        print(f"[DEBUG] Subfolder for prompt '{text_prompt}' already exists")
 
     if which_sam == "SAM": 
         print("This is the value of sam_model", sam_model)
@@ -297,6 +305,7 @@ def extractImages(boxes_xyxy, sam_model, which_sam, image_path: str, text_prompt
             return binary_mask.astype(np.uint8)
 
     # 8. Save the combined mask
+    combined_output_path = None
     if combined_mask is not None:
         print("[DEBUG] Combined mask computed. Proceeding to fill holes (if not bypassed).")
         combined_mask_filled = combined_mask if bypass_filling else fill_holes(combined_mask)
@@ -304,8 +313,8 @@ def extractImages(boxes_xyxy, sam_model, which_sam, image_path: str, text_prompt
         combined_mask_grayscale = (combined_mask_filled.astype(np.uint8) * 255)
         combined_mask_image = Image.fromarray(combined_mask_grayscale)
         combined_output_path = os.path.join(
-            output_folder,
-            f"{os.path.splitext(os.path.basename(image_path))[0]}_combined_mask_{text_prompt}.png"
+            prompt_folder,
+            f"{os.path.splitext(os.path.basename(image_path))[0]}_combined_mask.png"
         )
         combined_mask_image.save(combined_output_path)
         print(f"[DEBUG] Saved combined mask to {combined_output_path}")
@@ -314,9 +323,10 @@ def extractImages(boxes_xyxy, sam_model, which_sam, image_path: str, text_prompt
 
     # After processing, clear large variables
     del boxes_xyxy
-    del sam_model  # If you are done with the model in this context
+    del sam_model 
 
     print("=== Debug: Exiting extractImages ===\n")
+    return combined_output_path
 
 def worker_process_image(args):
     image_path, text_prompt, box_threshold, output_folder, which_sam = args
@@ -333,10 +343,10 @@ def worker_process_image(args):
         print("These are the boxes:", boxes_xyxy)
         print("🟢 Forwarding to extractImages:")
 
-        extractImages(boxes_xyxy, sam_model, which_sam, image_path, text_prompt, output_folder)
+        output_path = extractImages(boxes_xyxy, sam_model, which_sam, image_path, text_prompt, output_folder)
         
         # Check if extractImages worked
-        if os.path.exists(os.path.join(output_folder, f"{os.path.splitext(os.path.basename(image_path))[0]}_combined_mask_{text_prompt}.png")):
+        if output_path and os.path.exists(output_path):
             print("🟢 ExtractImages completed successfully and output file exists.")
             logging.info(f"Task for {image_path} completed successfully.")
             return True
@@ -418,7 +428,7 @@ def process_images(input_folder, output_folder, sam_model, which_sam, start_from
         selected_tags = {}
 
     # Use logger instead of print/log_callback
-    num_processes = 2 if which_sam == "SAM" else 4
+    num_processes = 2 if which_sam == "SAM" else 6
     logger.info(f"Using {num_processes} worker processes for {which_sam}")
 
     # If start_from_zero is True, erase the log file
