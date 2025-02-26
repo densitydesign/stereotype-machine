@@ -93,13 +93,13 @@ def generate_images(nation, category, num_images, generated_folder=None, upscale
 
     if which_img_model == "FLUX":
         steps = 8
-        prompt = f"{nation} {category}, photographed with a 35 mm lens with a wide field"
+        prompt = f"({nation}:1.5) {category}), photographed with a 35 mm lens with a wide field"
         txt2img_data_flux["prompt"] = prompt
 
     else:
         txt2img_data["steps"] = steps
         
-        prompt = f"({nation})1.5 {category}, (35mm lens photography), extremely detailed, 4k, shot on dslr, photorealistic, photographic, sharp"
+        prompt = f"(({nation}:1.5) {category}), (35mm lens photography), extremely detailed, 4k, shot on dslr, photorealistic, photographic, sharp"
 
         txt2img_data["prompt"] = prompt
 
