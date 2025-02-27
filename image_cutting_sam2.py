@@ -312,10 +312,13 @@ def extractImages(boxes_xyxy, sam_model, which_sam, image_path: str, text_prompt
         print("[DEBUG] Combined mask filled. Converting to grayscale.")
         combined_mask_grayscale = (combined_mask_filled.astype(np.uint8) * 255)
         combined_mask_image = Image.fromarray(combined_mask_grayscale)
+        
+        # This is where the output filename for the mask is determined
         combined_output_path = os.path.join(
             prompt_folder,
             f"{os.path.splitext(os.path.basename(image_path))[0]}_combined_mask.png"
         )
+        
         combined_mask_image.save(combined_output_path)
         print(f"[DEBUG] Saved combined mask to {combined_output_path}")
     else:

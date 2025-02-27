@@ -86,6 +86,9 @@ def create_image_grids_from_structure(root_dir, grid_size, output_dir=None):
         if not image_files:
             print(f"No images found in {folder_path}, skipping...")
             continue
+        
+        # Sort the image files to maintain consistent order
+        image_files.sort()
             
         print(f"Processing folder: {folder_path} with {len(image_files)} images")
         image_paths = [os.path.join(folder_path, f) for f in image_files]
