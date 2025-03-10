@@ -102,9 +102,9 @@ def download_file(file_path: str, download_url: str, which_sam) -> None:
     """
     if which_sam == "SAM":
         try:
-            import requests  # Ensure requests is available
+            import requests
             response = requests.get(download_url, stream=True)
-            response.raise_for_status()  # Raise an exception for any errors
+            response.raise_for_status()
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             with open(file_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
@@ -176,7 +176,6 @@ def createBoxes(image_path: str, text_prompt: str, box_threshold: float):
     return boxes_xyxy, image_source
 
 def extractImages(boxes_xyxy, sam_model, which_sam, image_path: str, text_prompt: str, output_folder: str, bypass_filling=False):
-
     # Debug: Print inputs at the beginning
     print("=== Debug: Entering extractImages ===")
     print(f"Image path: {image_path}")
@@ -185,24 +184,34 @@ def extractImages(boxes_xyxy, sam_model, which_sam, image_path: str, text_prompt
     print(f"Bypass filling: {bypass_filling}")
     print(f"Received boxes shape/type: {boxes_xyxy.shape if hasattr(boxes_xyxy, 'shape') else type(boxes_xyxy)}")
 
-    if len(boxes_xyxy) == 0:
-        print(f"[DEBUG] No bounding boxes provided for {image_path}. Skipping.")
-        return
-
-    # 2. Ensure the output folder exists
+    # Create output folders regardless of boxes
     if not os.path.exists(output_folder):
         print(f"[DEBUG] Output folder '{output_folder}' does not exist. Creating folder.")
         os.makedirs(output_folder)
-    else:
-        print(f"[DEBUG] Output folder '{output_folder}' already exists.")
     
     # Create a subfolder for this specific text_prompt
     prompt_folder = os.path.join(output_folder, text_prompt)
     if not os.path.exists(prompt_folder):
         print(f"[DEBUG] Creating subfolder for prompt '{text_prompt}'")
         os.makedirs(prompt_folder)
-    else:
-        print(f"[DEBUG] Subfolder for prompt '{text_prompt}' already exists")
+
+    if len(boxes_xyxy) == 0:
+        print(f"[DEBUG] No bounding boxes provided for {image_path}. Creating empty mask.")
+        # Load the image to get its dimensions
+        with Image.open(image_path) as img:
+            width, height = img.size
+        
+        # Create empty mask with same dimensions as input image
+        empty_mask = Image.new('L', (width, height), 0)  # 'L' mode for grayscale, 0 for black
+        
+        # Save the empty mask
+        combined_output_path = os.path.join(
+            prompt_folder,
+            f"{os.path.splitext(os.path.basename(image_path))[0]}_combined_mask.png"
+        )
+        empty_mask.save(combined_output_path)
+        print(f"[DEBUG] Saved empty mask to {combined_output_path}")
+        return combined_output_path
 
     if which_sam == "SAM": 
         print("This is the value of sam_model", sam_model)
@@ -343,6 +352,13 @@ def worker_process_image(args):
             print(log_msg)
 
         boxes_xyxy, _ = createBoxes(image_path, text_prompt, box_threshold)
+        
+        # Check if boxes were found
+        if len(boxes_xyxy) == 0:
+            print(f"⚠️ No bounding boxes found for {image_path}. Skipping to next image.")
+            logging.info(f"Skipped {image_path} - no bounding boxes found")
+            return True
+            
         print("These are the boxes:", boxes_xyxy)
         print("🟢 Forwarding to extractImages:")
 
@@ -353,10 +369,12 @@ def worker_process_image(args):
             print("🟢 ExtractImages completed successfully and output file exists.")
             logging.info(f"Task for {image_path} completed successfully.")
             return True
+        
         else:
             print("🚨 ExtractImages did not produce the expected output file.")
-            logging.error(f"Task for {image_path} failed: Output file not found.")
-            return False
+            logging.warning(f"Task for {image_path} skipped: Output file not found.")
+            # Return True to continue to the next image instead of stopping the process
+            return True
     
     except Exception as e:
         error_msg = f"🚨 Task failed for {image_path}: {e}"
