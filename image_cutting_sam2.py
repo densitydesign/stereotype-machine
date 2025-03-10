@@ -173,6 +173,14 @@ def createBoxes(image_path: str, text_prompt: str, box_threshold: float):
     boxes_xyxy = boxes_filt * torch.tensor([w, h, w, h])
     boxes_xyxy = box_convert(boxes=boxes_xyxy, in_fmt="cxcywh", out_fmt="xyxy").numpy()
 
+    # If no boxes found, create a tiny 1x1 box in the center of the image
+    if len(boxes_xyxy) == 0:
+        print(f"🙂🙃🙂 No bounding boxes found for {image_path}. Creating a tiny 1x1 box.")
+        # Create a 1x1 pixel box in the center of the image
+        center_x, center_y = w // 2, h // 2
+        tiny_box = np.array([[center_x, center_y, center_x + 0, center_y + 0]])
+        boxes_xyxy = tiny_box
+
     return boxes_xyxy, image_source
 
 def extractImages(boxes_xyxy, sam_model, which_sam, image_path: str, text_prompt: str, output_folder: str, bypass_filling=False):
