@@ -28,7 +28,7 @@ The tool at the moment works only on MacOS. You will need:
 
 ### Simplified guide
 
-For the less experiencd people, you can follow this simplified guide:
+For the less experiencd people, you can follow [this simplified guide](simplified-guide.md)
 
 ### Advanced guide
 
