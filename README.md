@@ -1,11 +1,16 @@
-# EMIF_Reloaded_UI
+# Stereotype Machine
 
-**Important:**  
-Create the virtual environment with **Python 3.12** or it will **NOT display a shit**.
+This tool is aimed at assessing how different nationalities are represented by generateve AI (at the moment, using the Stable Diffusion model).
 
-## Overview
+The project has been developed within the "Information Literacy for Societal Resilience" research project, a collaboration between DensityDesign Lab (Politecnico di Milano), Tactical Tech and IFLA. The overall goal of the project was to address how AI is impacting the ways that media and information are produced, distributed and perceived.
 
-EMIF_Reloaded_UI is a user interface project designed to integrate and streamline the image generation, cutting, and grid creation processes. This project builds upon TDL emif concepts and incorporates new features and aesthetic customizations for an improved user experience.
+This tool was used to produce some pieces for the exhibition "Supercharged by AI".
+
+The tool uses an "ambiguous prompting" techinque: by providing open-ended prompts (such as, "an italian family") and generating many of images with the same prompt it is possible to see wich are the recurrent visual cliches used by the AI model.
+
+The current interface allows you to input a nationality and a main subject (e.g. family, workers, teenager...) to automatically generate a given amount of images with the same prompt.
+
+The tool also allows you to create grids out of the generated iamges and to cut out some features from images that you would like to highlight.
 
 ## Features
 
@@ -27,16 +32,25 @@ EMIF_Reloaded_UI is a user interface project designed to integrate and streamlin
 - **Aesthetic Customization:**  
   Tailor the UI styling and design to meet specific branding or usability requirements.
 
-## Requirements
+## How to use
 
-- **Python:**  
-  Python 3.12 is required.  
-  _Ensure you create your virtual environment using Python 3.12._
+The tool at the moment is not self-contained, therefore you must download and execute the code on your machine.
 
-- **Dependencies:**  
-  Install all Python package dependencies (listed in `requirements.txt`).
+### Requirements
+
+The tool at the moment works only on MacOS. You will need:
+
+- a Mac computer with at least an M1 chip.
+- Python 3.12 installed on the machine (usually is alredy installed)
+- the app [Draw Things](https://drawthings.ai/)
 
 ## Setup
+
+### Simplified guide
+
+For the less experiencd people, you can follow this simplified guide:
+
+### Advanced guide
 
 1. **Clone the Repository:**
 
@@ -54,6 +68,9 @@ EMIF_Reloaded_UI is a user interface project designed to integrate and streamlin
 
    venv\Scripts\activate     # On Windows
    ```
+
+   **Important:**  
+   Create the virtual environment with **Python 3.12** or it will **NOT work**.
 
 3. **Install Dependencies:**
 
