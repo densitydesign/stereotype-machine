@@ -1,36 +1,16 @@
 # Stereotype Machine
 
-This tool is aimed at assessing how different nationalities are represented by generateve AI (at the moment, using the Stable Diffusion model).
+This tool is aimed at assessing how different nationalities are represented by generative AI (currently using the [Stable Diffusion](https://stability.ai/stable-diffusion) model).
 
-The project has been developed within the "Information Literacy for Societal Resilience" research project, a collaboration between DensityDesign Lab (Politecnico di Milano), Tactical Tech and IFLA. The overall goal of the project was to address how AI is impacting the ways that media and information are produced, distributed and perceived.
+The project was developed within the _[Information Literacy for Societal Resilience](https://tacticaltech.org/news/project-launches/information-literacy-for-societal-resilience/)_ research initiative, a collaboration between [DensityDesign Lab](https://densitydesign.org/) (Politecnico di Milano), [Tactical Tech](https://tacticaltech.org/), and [IFLA](https://www.ifla.org/). The overall goal of the project is to explore how AI is affecting the ways media and information are produced, distributed, and perceived.
 
-This tool was used to produce some pieces for the exhibition "Supercharged by AI".
+This tool was used to produce some of the pieces featured in the exhibition _"Supercharged by AI"_.
 
-The tool uses an "ambiguous prompting" techinque: by providing open-ended prompts (such as, "an italian family") and generating many of images with the same prompt it is possible to see wich are the recurrent visual cliches used by the AI model.
+The tool uses an _ambiguous prompting_ technique: by providing open-ended prompts (such as _"an Italian family"_) and generating many images with the same prompt, it is possible to observe recurring visual clichés used by the AI model.
 
-The current interface allows you to input a nationality and a main subject (e.g. family, workers, teenager...) to automatically generate a given amount of images with the same prompt.
+The current interface allows users to input a nationality and a main subject (e.g., _family_, _workers_, _teenagers_) to automatically generate a set number of images with the same prompt.
 
-The tool also allows you to create grids out of the generated iamges and to cut out some features from images that you would like to highlight.
-
-## Features
-
-- **Dynamic UI:**  
-  Replace the preset nation selection with an open field to allow free-form input.
-
-- **Model Offloading:**  
-  Download models via URL to decrease local storage requirements and facilitate updates.
-
-- **Enhanced Troubleshooting:**  
-  Updated troubleshooting procedures for new environment issues.
-
-- **Internal Check-Ins:**  
-  Automated readiness checks for models before processing.
-
-- **macOS Specifics:**  
-  Custom macOS icon creation to provide a native look and feel.
-
-- **Aesthetic Customization:**  
-  Tailor the UI styling and design to meet specific branding or usability requirements.
+The tool also enables users to create grids from the generated images and to cut out specific features they wish to highlight.
 
 ## How to use
 
